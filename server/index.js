@@ -27,6 +27,7 @@ function serialize(story) {
     minutes: story.minutes,
     num: story.num,
     illus: story.illus,
+    illusData: story.illusData ? JSON.parse(story.illusData) : null,
     tags: story.tags.map((t) => t.name),
   };
 }
@@ -82,6 +83,7 @@ app.post('/api/stories/generate', async (req, res) => {
         minutes: gen.minutes,
         num,
         illus: gen.illus,
+        illusData: gen.illusData ? JSON.stringify(gen.illusData) : null,
         tags: {
           connectOrCreate: tags.map((name) => ({
             where: { name: name.toUpperCase() },

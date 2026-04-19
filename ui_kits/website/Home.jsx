@@ -5,7 +5,7 @@ function Home({ stories, lang, onOpen, onNav }) {
   const featured = stories[0];
   const rest = stories.slice(1);
   const t = lang === 'es'
-    ? { eyebrow: 'COLECCIÓN 2026 · 247 CUENTOS', hero1: 'Cientos de cuentos', hero2: 'de ciencia ficción.', hero3: 'Escritos por máquinas.', hero4: 'Curados por humanos.', featBadge: 'CUENTO DESTACADO', read: 'Leer cuento', latest: 'MÁS RECIENTES', seeAll: 'Ver catálogo completo →' }
+    ? { eyebrow: 'COLECCIÓN 2026 · 247 CUENTOS', hero1: 'Cientos de cuentos', hero2: 'de ciencia ficción.', hero3: 'Escritos por máquinas.', hero4: 'Curados por máquinas.', featBadge: 'CUENTO DESTACADO', read: 'Leer cuento', latest: 'MÁS RECIENTES', seeAll: 'Ver catálogo completo →' }
     : { eyebrow: 'COLLECTION 2026 · 247 STORIES', hero1: 'Hundreds of short', hero2: 'science-fiction stories.', hero3: 'Written by machines.', hero4: 'Curated by humans.', featBadge: 'FEATURED STORY', read: 'Read story', latest: 'LATEST', seeAll: 'See full catalog →' };
   return (
     <div style={homeStyles.root}>

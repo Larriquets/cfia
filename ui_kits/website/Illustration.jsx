@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-function Illustration({ kind = 'orbit', seed = 0, size = 200 }) {
+function Illustration({ kind = 'orbit', seed = 0, size = 200, data = null }) {
   // Simple seeded pseudo-random
   const rnd = (n) => {
     let x = Math.sin(seed + n) * 10000;
@@ -9,6 +9,10 @@ function Illustration({ kind = 'orbit', seed = 0, size = 200 }) {
   const fg = '#f5f3ee';
   const amber = '#e8b84a';
   const bg = '#0a0a0f';
+
+  if (kind === 'generative' && data && Array.isArray(data.shapes)) {
+    return <GenerativeIllus data={data} size={size} fg={fg} amber={amber} bg={bg} />;
+  }
 
   if (kind === 'orbit') {
     const cx = size / 2;
@@ -70,6 +74,42 @@ function Illustration({ kind = 'orbit', seed = 0, size = 200 }) {
         );
       })}
       <line x1="10" y1={size - 20} x2={size - 10} y2={size - 20} stroke={fg} strokeWidth="1" />
+    </svg>
+  );
+}
+
+function GenerativeIllus({ data, size, fg, amber, bg }) {
+  const S = size;
+  const px = (v) => Math.round(v * S);
+  const color = (c) => (c === 'amber' ? amber : c === 'bg' ? bg : fg);
+  const sw = (v) => (typeof v === 'number' ? v : 1);
+
+  return (
+    <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} style={{ display: 'block', background: bg }}>
+      <rect x="2" y="2" width={S - 4} height={S - 4} fill="none" stroke={fg} strokeWidth="1" />
+      {data.shapes.slice(0, 40).map((s, i) => {
+        const stroke = color(s.stroke || 'fg');
+        const fill = s.fill ? color(s.fill) : 'none';
+        const strokeWidth = sw(s.strokeWidth);
+        if (s.type === 'line') {
+          return <line key={i} x1={px(s.x1)} y1={px(s.y1)} x2={px(s.x2)} y2={px(s.y2)} stroke={stroke} strokeWidth={strokeWidth} />;
+        }
+        if (s.type === 'circle') {
+          return <circle key={i} cx={px(s.cx)} cy={px(s.cy)} r={px(s.r)} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+        }
+        if (s.type === 'rect') {
+          return <rect key={i} x={px(s.x)} y={px(s.y)} width={px(s.w)} height={px(s.h)} fill={fill} stroke={fill === 'none' ? stroke : 'none'} strokeWidth={strokeWidth} />;
+        }
+        if (s.type === 'polyline' && Array.isArray(s.points)) {
+          const pts = s.points.map((p) => `${px(p[0])},${px(p[1])}`).join(' ');
+          return <polyline key={i} points={pts} fill="none" stroke={stroke} strokeWidth={strokeWidth} />;
+        }
+        if (s.type === 'polygon' && Array.isArray(s.points)) {
+          const pts = s.points.map((p) => `${px(p[0])},${px(p[1])}`).join(' ');
+          return <polygon key={i} points={pts} fill={fill} stroke={fill === 'none' ? stroke : 'none'} strokeWidth={strokeWidth} />;
+        }
+        return null;
+      })}
     </svg>
   );
 }

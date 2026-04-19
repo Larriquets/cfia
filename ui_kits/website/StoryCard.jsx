@@ -23,7 +23,7 @@ function StoryCard({ story, lang, onOpen, featured = false }) {
       </div>
       {featured && (
         <div style={{ marginBottom: 16 }}>
-          <Illustration kind={story.illus} seed={story.num} size={featured ? 280 : 160} />
+          <Illustration kind={story.illus} seed={story.num} size={featured ? 280 : 160} data={story.illusData} />
         </div>
       )}
       <h3 style={featured ? cardStyles.titleFeat : cardStyles.title}>{story.title[lang]}</h3>

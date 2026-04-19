@@ -28,7 +28,7 @@ function Reader({ story, lang, onBack }) {
       <article style={rdStyles.article}>
         <header style={rdStyles.header}>
           <div style={rdStyles.illusWrap}>
-            <Illustration kind={story.illus} seed={story.num} size={240} />
+            <Illustration kind={story.illus} seed={story.num} size={240} data={story.illusData} />
           </div>
           <h1 style={rdStyles.title}>{story.title[lang]}</h1>
           <div style={rdStyles.bylineStack}>
