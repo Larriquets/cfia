@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px 24px; background: var(--bg-0); }
+  .row { display: flex; gap: 24px; align-items: center; }
+  .box { width: 80px; height: 80px; background: var(--bg-0); border: 2px solid var(--fg-0); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; color: var(--fg-0); }
+  .caption { font-family: var(--font-mono); font-size: 10px; color: var(--fg-1); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 8px; text-align: center; }
+  .unit { display: flex; flex-direction: column; align-items: center; }
+  .rule-demo { display: flex; flex-direction: column; gap: 10px; margin-left: auto; align-items: flex-end; }
+  .rule-demo .hr { width: 200px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="unit"><div class="box" style="border-radius: 0;">0</div><div class="caption">default</div></div>
+    <div class="unit"><div class="box" style="border-radius: 2px;">2px</div><div class="caption">sm · chips</div></div>
+    <div class="unit"><div class="box" style="border-radius: 999px;">∞</div><div class="caption">full · avatars</div></div>
+    <div class="rule-demo">
+      <div class="hr" style="border-top: 3px solid var(--fg-0)"></div>
+      <div class="hr" style="border-top: 2px solid var(--fg-0)"></div>
+      <div class="hr" style="border-top: 1px solid var(--rule)"></div>
+    </div>
+  </div>
+</body>
+</html>

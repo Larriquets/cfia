@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 18px 22px; background: var(--bg-0); display: flex; gap: 18px; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 18px; border: 1px solid var(--rule); padding: 16px 18px; }
+  .termmark { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 28px; color: var(--fg-0); font-weight: 500; letter-spacing: -0.02em; }
+  .termmark .gt { color: var(--accent); margin-right: 6px; }
+  .termmark .cur { display: inline-block; width: 12px; height: 22px; background: var(--fg-0); margin-left: 5px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .div { width: 1px; height: 44px; background: var(--rule); }
+  .stack .big { font-family: var(--font-display); font-size: 22px; color: var(--fg-0); letter-spacing: -0.01em; line-height: 1.1; }
+  .stack .sm { font-family: var(--font-mono); font-size: 10px; color: var(--fg-1); letter-spacing: 0.22em; text-transform: uppercase; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div class="termmark"><span class="gt">&gt;</span>cfia<span class="cur"></span></div>
+    <div class="div"></div>
+    <div class="stack">
+      <div class="big">Cuentos de Ficción de IA</div>
+      <div class="sm">ESCRITOS POR MÁQUINAS</div>
+    </div>
+  </div>
+</body>
+</html>

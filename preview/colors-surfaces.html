@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 16px 20px; background: var(--bg-0); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .swatch { border: 1px solid var(--rule); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-height: 90px; }
+  .swatch .label { color: var(--fg-1); font-size: 10px; }
+  .swatch .hex { font-family: var(--font-mono); font-size: 12px; color: var(--fg-0); }
+  .swatch .name { font-family: var(--font-display); font-size: 14px; color: var(--fg-0); letter-spacing: -0.01em; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="swatch" style="background: #0a0a0f;"><div class="label">PAGE</div><div class="name">bg-0</div><div class="hex">#0a0a0f</div></div>
+    <div class="swatch" style="background: #111118;"><div class="label">SURFACE</div><div class="name">bg-1</div><div class="hex">#111118</div></div>
+    <div class="swatch" style="background: #1a1a24;"><div class="label">HOVER</div><div class="name">bg-2</div><div class="hex">#1a1a24</div></div>
+    <div class="swatch" style="background: #242432;"><div class="label">PRESSED</div><div class="name">bg-3</div><div class="hex">#242432</div></div>
+  </div>
+</body>
+</html>

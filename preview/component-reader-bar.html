@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 0; background: var(--bg-0); }
+  .bar { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 0; height: 3px; position: relative; }
+  .bar .fill { position: absolute; left: 0; top: 0; height: 100%; width: 42%; background: var(--accent); }
+  .wrap { padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .left { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-1); }
+  .left b { color: var(--fg-0); font-weight: 400; }
+  .right { display: flex; gap: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-1); }
+  .right span { cursor: pointer; }
+  .right span.on { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="bar"><div class="fill"></div></div>
+  <div class="wrap">
+    <div class="left">§ CAP. 3 DE 7 · <b>PÁGINA 8</b> / 19</div>
+    <div class="right">
+      <span>Aa−</span>
+      <span class="on">Aa</span>
+      <span>Aa+</span>
+    </div>
+  </div>
+</body>
+</html>

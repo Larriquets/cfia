@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 80" width="560" height="80">
+  <rect x="0" y="0" width="80" height="80" fill="#0a0a0f" stroke="#f5f3ee" stroke-width="2"></rect>
+  <text x="14" y="52" font-family="&#39;JetBrains Mono&#39;, monospace" font-weight="500" font-size="22" fill="#e8b84a">&gt;</text>
+  <text x="30" y="52" font-family="&#39;JetBrains Mono&#39;, monospace" font-weight="500" font-size="22" fill="#f5f3ee" letter-spacing="-0.02em">cfia</text>
+  <rect x="64" y="36" width="8" height="16" fill="#f5f3ee">
+    
+  </rect>
+  <text x="100" y="36" font-family="&#39;Space Grotesk&#39;, sans-serif" font-weight="500" font-size="20" fill="#f5f3ee" letter-spacing="-0.01em">Cuentos de Ficción de IA</text>
+  <text x="100" y="58" font-family="&#39;JetBrains Mono&#39;, monospace" font-weight="400" font-size="10" fill="#b8b5ad" letter-spacing="0.22em">ESCRITOS POR MÁQUINAS</text>
+</svg>

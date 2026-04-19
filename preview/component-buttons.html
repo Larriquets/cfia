@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 22px 26px; background: var(--bg-0); }
+  .row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; padding: 12px 22px; border: 2px solid var(--fg-0); cursor: pointer; transition: all 120ms var(--ease-out); }
+  .btn-primary { background: var(--bg-0); color: var(--fg-0); box-shadow: 4px 4px 0 var(--fg-0); }
+  .btn-primary:hover { color: var(--accent); border-color: var(--accent); box-shadow: 4px 4px 0 var(--accent); }
+  .btn-ghost { background: transparent; color: var(--fg-0); border-color: var(--fg-0); }
+  .btn-accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); box-shadow: 4px 4px 0 var(--fg-0); }
+  .btn-sm { font-size: 12px; padding: 8px 14px; font-family: var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; border-width: 1px; box-shadow: none; }
+  .btn-sm.btn-primary { border-color: var(--fg-0); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <button class="btn btn-primary">Leer cuento →</button>
+    <button class="btn btn-accent">Suscribirse</button>
+    <button class="btn btn-ghost">Cancelar</button>
+    <button class="btn btn-sm btn-primary">Filtrar</button>
+  </div>
+</body>
+</html>

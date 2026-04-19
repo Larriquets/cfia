@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px 24px; background: var(--bg-0); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-0); border: 1px solid var(--rule); padding: 6px 10px; }
+  .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .chip.dim { color: var(--fg-1); }
+  .tgl { display: inline-flex; border: 1px solid var(--fg-0); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .tgl span { padding: 8px 14px; color: var(--fg-1); }
+  .tgl span.on { background: var(--fg-0); color: var(--bg-0); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <span class="chip on">◼ DISTOPÍA</span>
+    <span class="chip">◻ MARTE</span>
+    <span class="chip">◻ INTELIGENCIA ARTIFICIAL</span>
+    <span class="chip dim">◻ VIAJE EN EL TIEMPO</span>
+  </div>
+  <div class="tgl">
+    <span class="on">ES</span>
+    <span>EN</span>
+  </div>
+</body>
+</html>

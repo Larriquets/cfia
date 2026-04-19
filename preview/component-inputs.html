@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px 24px; background: var(--bg-0); }
+  .stack { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+  label.field { display: flex; flex-direction: column; gap: 6px; }
+  label.field .lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-1); }
+  input, textarea { font-family: var(--font-sans); font-size: 15px; color: var(--fg-0); background: var(--bg-0); border: 1px solid var(--fg-0); padding: 10px 14px; outline: none; }
+  input:focus { border-color: var(--accent); box-shadow: 3px 3px 0 var(--accent); }
+  input::placeholder { color: var(--fg-3); }
+  .check { display: flex; align-items: center; gap: 10px; font-family: var(--font-sans); font-size: 14px; color: var(--fg-0); }
+  .check .box { width: 16px; height: 16px; border: 1px solid var(--fg-0); background: var(--accent); display: inline-block; }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <label class="field">
+      <span class="lbl">CORREO</span>
+      <input type="email" placeholder="tu@correo.com" value="lector@cfia.lat">
+    </label>
+    <label class="field">
+      <span class="lbl">BUSCAR CUENTO</span>
+      <input type="search" placeholder="El silencio de Marte...">
+    </label>
+    <div class="check"><span class="box"></span>Recibir el cuento semanal</div>
+  </div>
+</body>
+</html>

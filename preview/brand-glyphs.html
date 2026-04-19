@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px 24px; background: var(--bg-0); }
+  .row { display: flex; gap: 22px; align-items: center; }
+  .glyph { font-family: var(--font-mono); font-size: 28px; color: var(--fg-0); width: 36px; text-align: center; }
+  .glyph.amber { color: var(--accent); }
+  .caption { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-1); }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .item { display: flex; align-items: center; gap: 14px; }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="item"><span class="glyph">→</span><span class="caption">Forward · read more</span><span class="glyph" style="margin-left:24px">←</span><span class="caption">Back</span></div>
+    <div class="item"><span class="glyph">·</span><span class="caption">Meta separator</span><span class="glyph" style="margin-left:24px">—</span><span class="caption">Em dash · headlines</span></div>
+    <div class="item"><span class="glyph">§</span><span class="caption">Section marker</span><span class="glyph" style="margin-left:24px">¶</span><span class="caption">Paragraph</span></div>
+    <div class="item"><span class="glyph">◻</span><span class="caption">Draft · unread</span><span class="glyph amber" style="margin-left:24px">◼</span><span class="caption">Published · read</span></div>
+  </div>
+</body>
+</html>
