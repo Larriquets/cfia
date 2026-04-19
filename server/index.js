@@ -194,23 +194,44 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     if (claudeKnobs) console.log(`[knobs claude] form=${claudeKnobs.form.id} object="${claudeKnobs.object}"`);
     if (geminiKnobs) console.log(`[knobs gemini] form=${geminiKnobs.form.id} object="${geminiKnobs.object}"`);
 
+    const t0 = Date.now();
+    const withTimeout = (p, ms, label) =>
+      Promise.race([
+        p,
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timeout after ${ms / 1000}s`)), ms)),
+      ]);
+
+    const GEN_TIMEOUT_MS = 80000;
     const tasks = [];
     if (wantClaude) {
       tasks.push({
         provider: 'claude',
-        promise: generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs })
-          .then((gen) => ({ gen, modelLabel: claudeModel })),
+        promise: withTimeout(
+          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs }),
+          GEN_TIMEOUT_MS, 'claude'
+        ).then((gen) => {
+          console.log(`[generate] claude done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+          return { gen, modelLabel: claudeModel };
+        }),
       });
     }
     if (wantGemini) {
       tasks.push({
         provider: 'gemini',
-        promise: generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs })
-          .then((gen) => ({ gen, modelLabel: geminiModel })),
+        promise: withTimeout(
+          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs }),
+          GEN_TIMEOUT_MS, 'gemini'
+        ).then((gen) => {
+          console.log(`[generate] gemini done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+          return { gen, modelLabel: geminiModel };
+        }),
       });
     }
 
+    req.setTimeout(300000);
+    res.setTimeout(300000);
     const results = await Promise.allSettled(tasks.map((t) => t.promise));
+    console.log(`[generate] all settled in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     const ok = [];
     const errs = [];
     results.forEach((r, i) => {
@@ -252,6 +273,9 @@ if (fs.existsSync(DIST_DIR)) {
   });
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`api listening on http://localhost:${PORT}`);
 });
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 125000;
+server.requestTimeout = 300000;
