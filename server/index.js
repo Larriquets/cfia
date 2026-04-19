@@ -1,11 +1,13 @@
+import 'dotenv/config';
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { generateStory } from './generate.js';
 
 const prisma = new PrismaClient();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 function serialize(story) {
   return {
@@ -44,6 +46,57 @@ app.get('/api/stories/:slug', async (req, res) => {
   });
   if (!story) return res.status(404).json({ error: 'not found' });
   res.json(serialize(story));
+});
+
+app.post('/api/stories/generate', async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada en .env' });
+    }
+
+    const { tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '' } = req.body || {};
+
+    const gen = await generateStory({ tags, model, temp, prompt });
+
+    const last = await prisma.story.findFirst({ orderBy: { num: 'desc' } });
+    const num = (last?.num ?? 0) + 1;
+
+    let slug = gen.slugBase || `cuento-${num}`;
+    let i = 1;
+    while (await prisma.story.findUnique({ where: { slug } })) {
+      slug = `${gen.slugBase}-${++i}`;
+    }
+
+    const story = await prisma.story.create({
+      data: {
+        slug,
+        titleEs: gen.titleEs,
+        titleEn: gen.titleEn,
+        excerptEs: gen.excerptEs,
+        excerptEn: gen.excerptEn,
+        bodyEs: gen.bodyEs.join('\n\n'),
+        bodyEn: gen.bodyEn.join('\n\n'),
+        model: model.toUpperCase(),
+        temp,
+        date: new Date(),
+        minutes: gen.minutes,
+        num,
+        illus: gen.illus,
+        tags: {
+          connectOrCreate: tags.map((name) => ({
+            where: { name: name.toUpperCase() },
+            create: { name: name.toUpperCase() },
+          })),
+        },
+      },
+      include: { tags: true },
+    });
+
+    res.json(serialize(story));
+  } catch (e) {
+    console.error('generate error:', e);
+    res.status(500).json({ error: e.message || 'generation failed' });
+  }
 });
 
 app.listen(PORT, () => {

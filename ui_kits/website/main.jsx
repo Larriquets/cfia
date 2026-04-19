@@ -12,8 +12,9 @@ import './Home.jsx';
 import './Catalog.jsx';
 import './Reader.jsx';
 import './About.jsx';
+import './Create.jsx';
 
-const { Nav, Footer, Home, Catalog, Reader, About } = window;
+const { Nav, Footer, Home, Catalog, Reader, About, Create } = window;
 
 function App() {
   const [route, setRoute] = useState('home');
@@ -37,6 +38,12 @@ function App() {
 
   const onOpen = (s) => { setSlug(s); setRoute('reader'); window.scrollTo(0, 0); };
   const onNav = (r) => { setRoute(r); window.scrollTo(0, 0); };
+  const onCreated = (story) => {
+    setStories((prev) => [story, ...(prev || [])]);
+    setSlug(story.slug);
+    setRoute('reader');
+    window.scrollTo(0, 0);
+  };
 
   if (error) {
     return (
@@ -64,6 +71,7 @@ function App() {
       <Nav route={route} onNav={onNav} lang={lang} onLang={setLang} />
       {route === 'home' && <Home stories={stories} lang={lang} onOpen={onOpen} onNav={onNav} />}
       {route === 'catalog' && <Catalog stories={stories} lang={lang} onOpen={onOpen} />}
+      {route === 'create' && <Create lang={lang} onCreated={onCreated} />}
       {route === 'reader' && <Reader story={current} lang={lang} onBack={() => onNav('catalog')} />}
       {route === 'about' && <About lang={lang} onNav={onNav} />}
       <Footer lang={lang} />
