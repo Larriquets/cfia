@@ -13,6 +13,8 @@
     "preview": "vite preview",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
+    "db:export": "node server/export-db.js",
+    "db:import": "node server/import-db.js",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio"
   },
