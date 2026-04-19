@@ -1,7 +1,7 @@
 import React from 'react';
 
 function StoryCard({ story, lang, onOpen, featured = false }) {
-  const { Illustration } = window;
+  const { Illustration, LikeButton } = window;
   const [hover, setHover] = React.useState(false);
   const s = featured ? cardStyles.featured : cardStyles.card;
   const shadow = featured ? (hover ? '6px 6px 0 #e8b84a' : '4px 4px 0 #f5f3ee') : 'none';
@@ -19,7 +19,17 @@ function StoryCard({ story, lang, onOpen, featured = false }) {
           <span style={cardStyles.amberSq} />
           {lang === 'es' ? 'CUENTO' : 'STORY'} {String(story.num).padStart(3, '0')} · {story.date.slice(0, 7)}
         </div>
-        <div style={cardStyles.eyebrow}>{story.minutes} MIN</div>
+        <div style={cardStyles.metaRight}>
+          <span style={cardStyles.eyebrow}>{story.minutes} MIN</span>
+          {LikeButton ? (
+            <LikeButton
+              slug={story.slug}
+              initialLikes={story.likes || 0}
+              variant="compact"
+              onChange={(n) => window.CFIA_onLikeChange?.(story.slug, n)}
+            />
+          ) : null}
+        </div>
       </div>
       {featured && (
         <div style={{ marginBottom: 16 }}>
@@ -39,7 +49,8 @@ function StoryCard({ story, lang, onOpen, featured = false }) {
 const cardStyles = {
   card: { background: '#111118', padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12 },
   featured: { background: '#111118', padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 14 },
-  metaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  metaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  metaRight: { display: 'flex', alignItems: 'center', gap: 10 },
   eyebrow: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#b8b5ad', textTransform: 'uppercase', display: 'flex', alignItems: 'center' },
   amberSq: { display: 'inline-block', width: 8, height: 8, background: '#e8b84a', marginRight: 8 },
   title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, color: '#f5f3ee', letterSpacing: '-0.02em', lineHeight: 1.1, fontWeight: 500, margin: 0 },

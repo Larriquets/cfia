@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 function Catalog({ stories, lang, onOpen }) {
-  const { Illustration } = window;
+  const { Illustration, LikeButton } = window;
   const [activeTag, setActiveTag] = useState(null);
   const [view, setView] = useState('grid');
   const allTags = [...new Set(stories.flatMap(s => s.tags))];
@@ -57,7 +57,17 @@ function Catalog({ stories, lang, onOpen }) {
               </div>
               <div style={catStyles.rowRight}>
                 <div style={catStyles.rowDate}>{s.date}</div>
-                <div style={catStyles.rowMin}>{s.minutes} MIN →</div>
+                <div style={catStyles.rowRightBottom}>
+                  {LikeButton ? (
+                    <LikeButton
+                      slug={s.slug}
+                      initialLikes={s.likes || 0}
+                      variant="compact"
+                      onChange={(n) => window.CFIA_onLikeChange?.(s.slug, n)}
+                    />
+                  ) : null}
+                  <span style={catStyles.rowMin}>{s.minutes} MIN →</span>
+                </div>
               </div>
             </div>
           ))}
@@ -74,7 +84,17 @@ function Catalog({ stories, lang, onOpen }) {
                 <span>{s.minutes} MIN</span>
               </div>
               <div style={catStyles.tileTitle}>{s.title[lang]}</div>
-              <div style={catStyles.tileTags}>{s.tags.slice(0, 3).join(' · ')}</div>
+              <div style={catStyles.tileFoot}>
+                <span style={catStyles.tileTags}>{s.tags.slice(0, 3).join(' · ')}</span>
+                {LikeButton ? (
+                  <LikeButton
+                    slug={s.slug}
+                    initialLikes={s.likes || 0}
+                    variant="compact"
+                    onChange={(n) => window.CFIA_onLikeChange?.(s.slug, n)}
+                  />
+                ) : null}
+              </div>
             </div>
           ))}
         </section>
@@ -113,7 +133,9 @@ const catStyles = {
   tileImg: { width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', display: 'flex', alignItems: 'stretch', justifyContent: 'stretch', background: '#0a0a0f' },
   tileMetaTop: { display: 'flex', justifyContent: 'space-between', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase' },
   tileTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: '#f5f3ee', letterSpacing: '-0.01em', lineHeight: 1.15, fontWeight: 500, margin: 0 },
-  tileTags: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#b8b5ad' }
+  tileTags: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#b8b5ad' },
+  tileFoot: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  rowRightBottom: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
 };
 
 window.Catalog = Catalog;

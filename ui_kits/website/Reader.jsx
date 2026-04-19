@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 function Reader({ story, lang, onBack }) {
+  const { LikeButton } = window;
   const [progress, setProgress] = useState(0);
   useEffect(() => {
     const onScroll = () => {
@@ -47,6 +48,17 @@ function Reader({ story, lang, onBack }) {
               <span style={rdStyles.bylineVal}>Redacción CFIA · {story.date}</span>
             </div>
           </div>
+
+          {LikeButton ? (
+            <div style={rdStyles.likeRow}>
+              <LikeButton
+                slug={story.slug}
+                initialLikes={story.likes || 0}
+                variant="large"
+                onChange={(n) => window.CFIA_onLikeChange?.(story.slug, n)}
+              />
+            </div>
+          ) : null}
 
           <AudioPlayer
             title={story.title[lang]}
@@ -286,6 +298,7 @@ const rdStyles = {
   article: { maxWidth: 680, margin: '0 auto', padding: '64px 40px' },
   header: { display: 'flex', flexDirection: 'column', gap: 32, marginBottom: 48 },
   illusWrap: { alignSelf: 'flex-start' },
+  likeRow: { display: 'flex', justifyContent: 'flex-start' },
   title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 56, lineHeight: 0.98, letterSpacing: '-0.03em', fontWeight: 500, color: '#f5f3ee', margin: 0 },
   bylineStack: { display: 'flex', flexDirection: 'column', gap: 8 },
   bylineRow: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: 16 },

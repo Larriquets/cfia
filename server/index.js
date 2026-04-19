@@ -29,6 +29,7 @@ function serialize(story) {
     num: story.num,
     illus: story.illus,
     illusData: story.illusData ? JSON.parse(story.illusData) : null,
+    likes: story.likes ?? 0,
     tags: story.tags.map((t) => t.name),
   };
 }
@@ -39,6 +40,37 @@ app.get('/api/stories', async (_req, res) => {
     include: { tags: true },
   });
   res.json(stories.map(serialize));
+});
+
+app.post('/api/stories/:slug/like', async (req, res) => {
+  try {
+    const story = await prisma.story.update({
+      where: { slug: req.params.slug },
+      data: { likes: { increment: 1 } },
+      include: { tags: true },
+    });
+    res.json({ slug: story.slug, likes: story.likes });
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'not found' });
+    console.error('like error:', e);
+    res.status(500).json({ error: e.message || 'like failed' });
+  }
+});
+
+app.delete('/api/stories/:slug/like', async (req, res) => {
+  try {
+    const current = await prisma.story.findUnique({ where: { slug: req.params.slug } });
+    if (!current) return res.status(404).json({ error: 'not found' });
+    const next = Math.max(0, (current.likes ?? 0) - 1);
+    const story = await prisma.story.update({
+      where: { slug: req.params.slug },
+      data: { likes: next },
+    });
+    res.json({ slug: story.slug, likes: story.likes });
+  } catch (e) {
+    console.error('unlike error:', e);
+    res.status(500).json({ error: e.message || 'unlike failed' });
+  }
 });
 
 app.get('/api/stories/:slug', async (req, res) => {
