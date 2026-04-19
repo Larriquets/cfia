@@ -19,6 +19,26 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '1mb' }));
 
+function requireCreatePassword(req, res, next) {
+  const expected = process.env.CREATE_PASSWORD;
+  if (!expected) {
+    return res.status(500).json({ error: 'CREATE_PASSWORD no está seteada en el server' });
+  }
+  const got = req.get('x-create-auth') || '';
+  if (got !== expected) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  next();
+}
+
+app.post('/api/auth/check', (req, res) => {
+  const expected = process.env.CREATE_PASSWORD;
+  if (!expected) return res.status(500).json({ error: 'CREATE_PASSWORD no está seteada' });
+  const { password } = req.body || {};
+  if (password !== expected) return res.status(401).json({ error: 'bad password' });
+  res.json({ ok: true });
+});
+
 function serialize(story) {
   return {
     slug: story.slug,
@@ -132,7 +152,7 @@ async function persistStory({ gen, modelLabel, temp, tags }) {
   });
 }
 
-app.post('/api/stories/generate', async (req, res) => {
+app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
   try {
     const {
       tags = [],

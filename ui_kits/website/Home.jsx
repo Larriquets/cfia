@@ -62,12 +62,24 @@ function Home({ stories, lang, onOpen, onNav }) {
 
       <hr style={homeStyles.rule} />
 
-      <section style={homeStyles.featuredSec}>
-        <div style={homeStyles.featBadge}>{t.featBadge}</div>
-        <StoryCard story={featured} lang={lang} onOpen={onOpen} featured={true} />
-      </section>
-
-      <hr style={homeStyles.rule} />
+      {featured && (
+        <>
+          <section style={homeStyles.featuredSec}>
+            <div style={homeStyles.featBadge}>{t.featBadge}</div>
+            <StoryCard story={featured} lang={lang} onOpen={onOpen} featured={true} />
+          </section>
+          <hr style={homeStyles.rule} />
+        </>
+      )}
+      {!featured && (
+        <section style={homeStyles.featuredSec}>
+          <div style={homeStyles.featBadge}>{t.featBadge}</div>
+          <p style={{ fontFamily: "'JetBrains Mono', monospace", color: '#6b6860', fontSize: 13, letterSpacing: '0.1em' }}>
+            {lang === 'es' ? 'Aún no hay cuentos. Generá el primero desde CREAR.' : 'No stories yet. Generate the first one from CREATE.'}
+          </p>
+        </section>
+      )}
+      {!featured && <hr style={homeStyles.rule} />}
 
       <section style={homeStyles.secWrap}>
         <div style={homeStyles.secHead}>

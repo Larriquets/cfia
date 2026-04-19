@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const AUTH_KEY = 'cfia_create_auth_v1';
+
 const PROVIDERS = [
   { id: 'anthropic', label: 'CLAUDE' },
   { id: 'google', label: 'GEMINI' },
@@ -63,9 +65,44 @@ function Create({ lang, onCreated }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const [auth, setAuth] = useState(() => {
+    try { return localStorage.getItem(AUTH_KEY) || ''; } catch { return ''; }
+  });
+  const [pwInput, setPwInput] = useState('');
+  const [pwError, setPwError] = useState(null);
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const logout = () => {
+    try { localStorage.removeItem(AUTH_KEY); } catch {}
+    setAuth('');
+  };
+
+  const tryLogin = async () => {
+    setPwError(null);
+    setPwLoading(true);
+    try {
+      const r = await fetch('/api/auth/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwInput }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error === 'bad password' ? (lang === 'es' ? 'Contraseña incorrecta' : 'Wrong password') : (j.error || `HTTP ${r.status}`));
+      }
+      try { localStorage.setItem(AUTH_KEY, pwInput); } catch {}
+      setAuth(pwInput);
+      setPwInput('');
+    } catch (e) {
+      setPwError(e.message);
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
-    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
+    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
 
   const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
   const isBoth = provider === 'both';
@@ -100,9 +137,13 @@ function Create({ lang, onCreated }) {
     try {
       const r = await fetch('/api/stories/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
         body: JSON.stringify({ tags, provider, model, temp, prompt, length, form }),
       });
+      if (r.status === 401) {
+        logout();
+        throw new Error(lang === 'es' ? 'Sesión expirada. Ingresá la contraseña de nuevo.' : 'Session expired. Enter the password again.');
+      }
       if (!r.ok) {
         const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
         throw new Error(j.error || `HTTP ${r.status}`);
@@ -121,12 +162,48 @@ function Create({ lang, onCreated }) {
     }
   };
 
+  if (!auth) {
+    return (
+      <div style={styles.root}>
+        <section style={styles.head}>
+          <div style={styles.eyebrow}>◼ {t.lockEyebrow}</div>
+          <h1 style={styles.h1}>{t.lockH1}</h1>
+          <p style={styles.subtitle}>{t.lockSubtitle}</p>
+        </section>
+        <hr style={styles.rule} />
+        <section style={{ ...styles.form, maxWidth: 480 }}>
+          <div style={styles.field}>
+            <label style={styles.label}>{t.lockPwLabel}</label>
+            <input
+              type="password"
+              style={styles.textarea}
+              value={pwInput}
+              onChange={(e) => setPwInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && pwInput && !pwLoading) tryLogin(); }}
+              placeholder={t.lockPwPh}
+              autoFocus
+            />
+          </div>
+          {pwError && <div style={styles.error}>{t.err} {pwError}</div>}
+          <button
+            type="button"
+            onClick={tryLogin}
+            disabled={pwLoading || !pwInput}
+            style={{ ...styles.submit, ...((pwLoading || !pwInput) ? styles.submitDisabled : {}) }}>
+            {pwLoading ? <>{t.lockLoading}<span style={styles.blink}>◼</span></> : t.lockSubmit}
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.root}>
       <section style={styles.head}>
         <div style={styles.eyebrow}>◼ {t.eyebrow}</div>
         <h1 style={styles.h1}>{t.h1}</h1>
         <p style={styles.subtitle}>{t.subtitle}</p>
+        <button type="button" onClick={logout} style={styles.logoutBtn}>{t.logout}</button>
       </section>
 
       <hr style={styles.rule} />
@@ -271,6 +348,7 @@ const styles = {
   submitDisabled: { background: '#3a3832', color: '#6b6860', cursor: 'wait' },
   blink: { animation: 'cfia-blink 1.1s steps(1) infinite' },
   error: { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: '0.08em', color: '#e8b84a', border: '1px solid #e8b84a', padding: 14, background: 'rgba(232,184,74,0.05)' },
+  logoutBtn: { alignSelf: 'flex-start', marginTop: 12, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', background: 'transparent', border: '1px solid #3a3832', padding: '6px 12px', cursor: 'pointer' },
 };
 
 window.Create = Create;

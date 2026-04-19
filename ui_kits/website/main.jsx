@@ -75,7 +75,7 @@ function App() {
     );
   }
 
-  const current = stories.find((s) => s.slug === slug) || stories[0];
+  const current = stories.find((s) => s.slug === slug) || stories[0] || null;
 
   return (
     <div>
@@ -83,7 +83,7 @@ function App() {
       {route === 'home' && <Home stories={stories} lang={lang} onOpen={onOpen} onNav={onNav} />}
       {route === 'catalog' && <Catalog stories={stories} lang={lang} onOpen={onOpen} />}
       {route === 'create' && <Create lang={lang} onCreated={onCreated} />}
-      {route === 'reader' && <Reader story={current} lang={lang} onBack={() => onNav('catalog')} />}
+      {route === 'reader' && current && <Reader story={current} lang={lang} onBack={() => onNav('catalog')} />}
       {route === 'about' && <About lang={lang} onNav={onNav} />}
       <Footer lang={lang} />
     </div>
