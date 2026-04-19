@@ -12,6 +12,7 @@ import {
   buildTitleGuardNote,
   buildRetryNote,
 } from './titleGuard.js';
+import { pickCreativityKnobs, buildCreativityNote } from './creativityKnobs.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -54,18 +55,22 @@ export async function generateStoryGemini({
   length = 'medium',
   recentTitles = [],
   overusedWords = [],
+  knobs = null,
 }) {
   const userPrompt = buildUserPrompt({ tags, prompt, length });
   const guardNote = buildTitleGuardNote({ recentTitles, overused: overusedWords });
-  let parsed = await callModel({ model, temp, userPrompt, extraSystem: guardNote });
+  const activeKnobs = knobs || pickCreativityKnobs();
+  const creativityNote = buildCreativityNote(activeKnobs);
+  const extra = guardNote + creativityNote;
+  let parsed = await callModel({ model, temp, userPrompt, extraSystem: extra });
 
   const banned = titleHasBannedWord(parsed) ? 'último/last' : null;
   const repeated = !banned ? titleRepeatsOverused(parsed, overusedWords) : null;
 
   if (banned || repeated) {
     const retryNote = buildRetryNote({ bannedWord: banned, repeatedWord: repeated });
-    parsed = await callModel({ model, temp, userPrompt, extraSystem: guardNote + retryNote });
+    parsed = await callModel({ model, temp, userPrompt, extraSystem: extra + retryNote });
   }
 
-  return { ...parsed, slugBase: slugify(parsed.titleEs) };
+  return { ...parsed, slugBase: slugify(parsed.titleEs), knobs: activeKnobs };
 }

@@ -6,6 +6,23 @@ const PROVIDERS = [
   { id: 'both', label: 'AMBAS' },
 ];
 
+const FORMS = [
+  { id: 'random', es: 'ALEATORIA',         en: 'RANDOM' },
+  { id: 'escena',         es: 'ESCENA ÚNICA',         en: 'SINGLE SCENE' },
+  { id: 'segunda-persona',es: 'SEGUNDA PERSONA',      en: 'SECOND PERSON' },
+  { id: 'epistolar',      es: 'CARTA / EPISTOLAR',    en: 'LETTER / EPISTOLARY' },
+  { id: 'inventario',     es: 'INVENTARIO',           en: 'INVENTORY' },
+  { id: 'transcripcion',  es: 'TRANSCRIPCIÓN',        en: 'TRANSCRIPT' },
+  { id: 'informe',        es: 'INFORME TÉCNICO',      en: 'TECHNICAL REPORT' },
+  { id: 'viñetas',        es: 'VIÑETAS',              en: 'VIGNETTES' },
+  { id: 'monologo',       es: 'MONÓLOGO HABLADO',     en: 'SPOKEN MONOLOGUE' },
+  { id: 'diario',         es: 'DIARIO',               en: 'DIARY' },
+  { id: 'presente',       es: 'TIEMPO PRESENTE',      en: 'PRESENT TENSE' },
+  { id: 'futuro-anterior',es: 'MIRADA DESDE EL FUTURO', en: 'FROM THE FUTURE' },
+  { id: 'plural',         es: 'PRIMERA PERSONA PLURAL', en: 'FIRST-PERSON PLURAL' },
+  { id: 'filosofia',      es: 'FILOSÓFICO / ENSAYO',  en: 'PHILOSOPHICAL / ESSAY' },
+];
+
 const MODELS_BY_PROVIDER = {
   anthropic: [
     { id: 'claude-sonnet-4-5', label: 'CLAUDE SONNET 4.5' },
@@ -41,13 +58,14 @@ function Create({ lang, onCreated }) {
   const [model, setModel] = useState('claude-sonnet-4-5');
   const [temp, setTemp] = useState(0.9);
   const [length, setLength] = useState('medium');
+  const [form, setForm] = useState('random');
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
-    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
+    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
 
   const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
   const isBoth = provider === 'both';
@@ -83,7 +101,7 @@ function Create({ lang, onCreated }) {
       const r = await fetch('/api/stories/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags, provider, model, temp, prompt, length }),
+        body: JSON.stringify({ tags, provider, model, temp, prompt, length, form }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
@@ -166,6 +184,16 @@ function Create({ lang, onCreated }) {
               </button>
             ))}
           </div>
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>{t.formLabel}</label>
+          <select style={styles.select} value={form} onChange={(e) => setForm(e.target.value)}>
+            {FORMS.map((f) => (
+              <option key={f.id} value={f.id}>{lang === 'es' ? f.es : f.en}</option>
+            ))}
+          </select>
+          <div style={styles.hint}>{t.formHint}</div>
         </div>
 
         <div style={styles.row}>

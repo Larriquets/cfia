@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { generateStory } from './generate.js';
 import { generateStoryGemini } from './generateGemini.js';
 import { findOverusedWords } from './titleGuard.js';
+import { pickCreativityKnobs } from './creativityKnobs.js';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -133,6 +134,7 @@ app.post('/api/stories/generate', async (req, res) => {
       temp = 0.9,
       prompt = '',
       length = 'medium',
+      form = null,
     } = req.body || {};
 
     const wantClaude = provider === 'anthropic' || provider === 'both';
@@ -156,18 +158,27 @@ app.post('/api/stories/generate', async (req, res) => {
     const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
     const overusedWords = findOverusedWords(recentTitles, 2);
 
+    const formId = form && form !== 'random' ? form : null;
+    const claudeKnobs = wantClaude ? pickCreativityKnobs({ formId }) : null;
+    let geminiKnobs = wantGemini ? pickCreativityKnobs({ formId }) : null;
+    if (!formId && claudeKnobs && geminiKnobs && claudeKnobs.form.id === geminiKnobs.form.id) {
+      geminiKnobs = pickCreativityKnobs({ seed: geminiKnobs.seed + 7 });
+    }
+    if (claudeKnobs) console.log(`[knobs claude] form=${claudeKnobs.form.id} object="${claudeKnobs.object}"`);
+    if (geminiKnobs) console.log(`[knobs gemini] form=${geminiKnobs.form.id} object="${geminiKnobs.object}"`);
+
     const tasks = [];
     if (wantClaude) {
       tasks.push({
         provider: 'claude',
-        promise: generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords })
+        promise: generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs })
           .then((gen) => ({ gen, modelLabel: claudeModel })),
       });
     }
     if (wantGemini) {
       tasks.push({
         provider: 'gemini',
-        promise: generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords })
+        promise: generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs })
           .then((gen) => ({ gen, modelLabel: geminiModel })),
       });
     }
