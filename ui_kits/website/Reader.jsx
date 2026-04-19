@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-function Reader({ story, lang, onBack }) {
+function Reader({ story, lang, onBack, onOpen, onCreated }) {
   const { LikeButton } = window;
   const [progress, setProgress] = useState(0);
   useEffect(() => {
@@ -14,14 +14,32 @@ function Reader({ story, lang, onBack }) {
 
   const body = (story.body && story.body[lang]) || [story.excerpt[lang]];
   const t = lang === 'es'
-    ? { back: '← Volver al catálogo', by: 'ESCRITO POR', curated: 'CURADO POR', chap: 'CUENTO',
+    ? { back: '← Volver al catálogo', by: 'ESCRITO POR', universe: 'UNIVERSO', engine: 'MOTOR', curated: 'CURADO POR', chap: 'CUENTO',
         audio: 'AUDIO', listen: 'ESCUCHAR', pause: 'PAUSAR', resume: 'REANUDAR', stop: 'DETENER',
         voice: 'VOZ', speed: 'VELOCIDAD', unsupported: 'Tu navegador no soporta síntesis de voz',
-        para: 'PÁRRAFO', playing: 'REPRODUCIENDO' }
-    : { back: '← Back to catalog', by: 'WRITTEN BY', curated: 'CURATED BY', chap: 'STORY',
+        para: 'PÁRRAFO', playing: 'REPRODUCIENDO',
+        thread: 'HILO', expandsFrom: 'CONTINÚA DE', expandsTo: 'EXPANDIDO EN',
+        expandTitle: 'EXPANDIR ESTE CUENTO',
+        expandHint: 'Pedile a ECHO-7 que escriba otro cuento que continúe, preceda o eche luz sobre este.',
+        angleLabel: 'ÁNGULO',
+        angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' },
+        expandBtn: '▸ EXPANDIR',
+        expanding: 'GENERANDO · ',
+        lockedHint: 'Acceso restringido. Entrá por CREAR.',
+        err: '◼ ERROR:' }
+    : { back: '← Back to catalog', by: 'WRITTEN BY', universe: 'UNIVERSE', engine: 'ENGINE', curated: 'CURATED BY', chap: 'STORY',
         audio: 'AUDIO', listen: 'LISTEN', pause: 'PAUSE', resume: 'RESUME', stop: 'STOP',
         voice: 'VOICE', speed: 'SPEED', unsupported: 'Your browser does not support speech synthesis',
-        para: 'PARAGRAPH', playing: 'PLAYING' };
+        para: 'PARAGRAPH', playing: 'PLAYING',
+        thread: 'THREAD', expandsFrom: 'CONTINUES FROM', expandsTo: 'EXPANDED IN',
+        expandTitle: 'EXPAND THIS STORY',
+        expandHint: 'Ask ECHO-7 to write another story that continues, precedes or sheds light on this one.',
+        angleLabel: 'ANGLE',
+        angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' },
+        expandBtn: '▸ EXPAND',
+        expanding: 'GENERATING · ',
+        lockedHint: 'Restricted. Enter through CREATE.',
+        err: '◼ ERROR:' };
 
   return (
     <div style={rdStyles.root}>
@@ -41,7 +59,17 @@ function Reader({ story, lang, onBack }) {
           <div style={rdStyles.bylineStack}>
             <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
               <span style={rdStyles.bylineLbl}>{t.by}</span>
-              <span style={rdStyles.bylineVal}>{story.model} · TEMP {story.temp}</span>
+              <span style={rdStyles.bylineVal}>{story.author?.name || 'ECHO-7'}</span>
+            </div>
+            {story.universe ? (
+              <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
+                <span style={rdStyles.bylineLbl}>{t.universe}</span>
+                <span style={rdStyles.bylineVal}>{story.universe.name?.[lang] || story.universe.name?.es}</span>
+              </div>
+            ) : null}
+            <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
+              <span style={rdStyles.bylineLbl}>{t.engine}</span>
+              <span style={{ ...rdStyles.bylineVal, color: '#b8b5ad' }}>{story.model} · TEMP {story.temp}</span>
             </div>
             <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
               <span style={rdStyles.bylineLbl}>{t.curated}</span>
@@ -87,10 +115,159 @@ function Reader({ story, lang, onBack }) {
             GENERATED {story.date} · MODEL {story.model} · TEMP {story.temp} · {story.tags.join(' · ')}
           </div>
         </div>
+
+        {(story.parentSlug || (story.children && story.children.length)) ? (
+          <ThreadSection story={story} lang={lang} t={t} onOpen={onOpen} />
+        ) : null}
+
+        <ExpandPanel story={story} lang={lang} t={t} onCreated={onCreated} />
       </article>
     </div>
   );
 }
+
+function ThreadSection({ story, lang, t, onOpen }) {
+  return (
+    <>
+      <hr style={rdStyles.sepHair} />
+      <section style={threadStyles.wrap}>
+        <div style={threadStyles.label}>◼ {t.thread}</div>
+        {story.parentSlug ? (
+          <div style={threadStyles.row}>
+            <span style={threadStyles.rowLbl}>{t.expandsFrom}</span>
+            <a style={threadStyles.link} onClick={() => onOpen?.(story.parentSlug)}>
+              → {story.parentSlug}
+            </a>
+          </div>
+        ) : null}
+        {story.children && story.children.length ? (
+          <div style={threadStyles.row}>
+            <span style={threadStyles.rowLbl}>{t.expandsTo}</span>
+            <div style={threadStyles.childList}>
+              {story.children.map((c) => (
+                <a key={c.slug} style={threadStyles.link} onClick={() => onOpen?.(c.slug)}>
+                  → {c.title?.[lang] || c.title?.es || c.slug}
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
+const AUTH_KEY_EXPAND = 'cfia_create_auth_v1';
+const ANGLES = ['auto', 'secuela', 'precuela', 'lateral', 'eco'];
+
+function ExpandPanel({ story, lang, t, onCreated }) {
+  const [auth, setAuth] = useState(() => {
+    try { return localStorage.getItem(AUTH_KEY_EXPAND) || ''; } catch { return ''; }
+  });
+  const [angle, setAngle] = useState('auto');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  if (!auth) {
+    return (
+      <>
+        <hr style={rdStyles.sepHair} />
+        <section style={expandStyles.wrap}>
+          <div style={expandStyles.title}>◼ {t.expandTitle}</div>
+          <div style={expandStyles.hint}>{t.lockedHint}</div>
+        </section>
+      </>
+    );
+  }
+
+  const submit = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/stories/${story.slug}/expand`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
+        body: JSON.stringify({ angle, provider: 'anthropic', length: 'medium', temp: 0.9 }),
+      });
+      if (r.status === 401) {
+        try { localStorage.removeItem(AUTH_KEY_EXPAND); } catch {}
+        setAuth('');
+        throw new Error(lang === 'es' ? 'Sesión expirada.' : 'Session expired.');
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      const data = await r.json();
+      onCreated?.(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <hr style={rdStyles.sepHair} />
+      <section style={expandStyles.wrap}>
+        <div style={expandStyles.title}>◼ {t.expandTitle}</div>
+        <div style={expandStyles.hint}>{t.expandHint}</div>
+
+        <div style={expandStyles.field}>
+          <label style={expandStyles.label}>{t.angleLabel}</label>
+          <div style={expandStyles.segBox}>
+            {ANGLES.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAngle(a)}
+                style={{ ...expandStyles.segBtn, ...(angle === a ? expandStyles.segBtnOn : {}) }}
+              >
+                {t.angles[a]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error ? <div style={expandStyles.error}>{t.err} {error}</div> : null}
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={loading}
+          style={{ ...expandStyles.submit, ...(loading ? expandStyles.submitDisabled : {}) }}
+        >
+          {loading ? <>{t.expanding}<span style={expandStyles.blink}>◼</span></> : t.expandBtn}
+        </button>
+      </section>
+    </>
+  );
+}
+
+const threadStyles = {
+  wrap: { display: 'flex', flexDirection: 'column', gap: 16, padding: '24px 0' },
+  label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
+  row: { display: 'grid', gridTemplateColumns: '140px 1fr', gap: 16, alignItems: 'start' },
+  rowLbl: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase', paddingTop: 2 },
+  childList: { display: 'flex', flexDirection: 'column', gap: 6 },
+  link: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, color: '#f5f3ee', cursor: 'pointer', borderBottom: '1px solid #3a3832', alignSelf: 'flex-start', paddingBottom: 2 },
+};
+
+const expandStyles = {
+  wrap: { display: 'flex', flexDirection: 'column', gap: 16, padding: '24px 0 48px' },
+  title: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
+  hint: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, color: '#b8b5ad', maxWidth: 520 },
+  field: { display: 'flex', flexDirection: 'column', gap: 8 },
+  label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase' },
+  segBox: { display: 'flex', border: '1px solid #3a3832', flexWrap: 'wrap' },
+  segBtn: { flex: 1, minWidth: 80, background: '#0a0a0f', border: 'none', borderRight: '1px solid #3a3832', color: '#b8b5ad', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', padding: '12px 8px', cursor: 'pointer' },
+  segBtnOn: { background: '#e8b84a', color: '#0a0a0f' },
+  submit: { alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.18em', background: '#e8b84a', color: '#0a0a0f', border: 'none', padding: '14px 24px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10 },
+  submitDisabled: { background: '#3a3832', color: '#6b6860', cursor: 'wait' },
+  blink: { animation: 'cfia-blink 1.1s steps(1) infinite' },
+  error: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.08em', color: '#e8b84a', border: '1px solid #e8b84a', padding: 12, background: 'rgba(232,184,74,0.05)' },
+};
 
 function AudioPlayer({ title, paragraphs, lang, labels }) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;

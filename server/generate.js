@@ -70,7 +70,7 @@ const LENGTH_SPECS = {
   long:   { paras: '7 a 9',  minutes: '8 a 12',  label: 'larga' },
 };
 
-function buildUserPrompt({ tags, prompt, length }) {
+function buildUserPrompt({ tags, prompt, length, extraUser = '' }) {
   const tagList = (tags || []).map((t) => t.toUpperCase()).join(', ');
   const spec = LENGTH_SPECS[length] || LENGTH_SPECS.medium;
   const parts = [];
@@ -78,6 +78,7 @@ function buildUserPrompt({ tags, prompt, length }) {
   if (prompt && prompt.trim()) parts.push(`Semilla/idea: ${prompt.trim()}`);
   parts.push(`Longitud: ${spec.label}. Escribí entre ${spec.paras} párrafos por idioma. El campo "minutes" debe estar entre ${spec.minutes}.`);
   parts.push(`Escribí un cuento que respete esos tags como anclas temáticas.`);
+  if (extraUser && extraUser.trim()) parts.push(extraUser.trim());
   return parts.join('\n\n');
 }
 
@@ -175,12 +176,14 @@ export async function generateStory({
   recentTitles = [],
   overusedWords = [],
   knobs = null,
+  contextBlock = '',
+  extraUser = '',
 }) {
-  const userPrompt = buildUserPrompt({ tags, prompt, length });
+  const userPrompt = buildUserPrompt({ tags, prompt, length, extraUser });
   const guardNote = buildTitleGuardNote({ recentTitles, overused: overusedWords });
   const activeKnobs = knobs || pickCreativityKnobs();
   const creativityNote = buildCreativityNote(activeKnobs);
-  const extra = guardNote + creativityNote;
+  const extra = contextBlock + guardNote + creativityNote;
   let parsed = await callModel({ model, temp, userPrompt, extraSystem: extra });
 
   const banned = titleHasBannedWord(parsed) ? 'último/last' : null;

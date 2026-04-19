@@ -53,7 +53,10 @@ const SUGGESTED_TAGS = [
   'RELIGIÓN', 'FE', 'DIOSES', 'PROFECÍA', 'SUEÑO', 'VISIÓN',
 ];
 
-function Create({ lang, onCreated }) {
+function Create({ lang, onCreated, stories = [] }) {
+  const [mode, setMode] = useState('new');
+  const [parentSlug, setParentSlug] = useState('');
+  const [angle, setAngle] = useState('auto');
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [provider, setProvider] = useState('anthropic');
@@ -101,8 +104,8 @@ function Create({ lang, onCreated }) {
   };
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
-    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', subtitleExpand: 'ECHO-7 escribe un nuevo cuento que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
+    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'The AI generates the full story. You set the tone.', subtitleExpand: 'ECHO-7 writes a new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
 
   const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
   const isBoth = provider === 'both';
@@ -133,12 +136,20 @@ function Create({ lang, onCreated }) {
 
   const submit = async () => {
     setError(null);
+    if (mode === 'expand' && !parentSlug) {
+      setError(lang === 'es' ? 'Elegí un cuento a expandir.' : 'Choose a story to expand.');
+      return;
+    }
     setLoading(true);
     try {
-      const r = await fetch('/api/stories/generate', {
+      const url = mode === 'expand' ? `/api/stories/${parentSlug}/expand` : '/api/stories/generate';
+      const body = mode === 'expand'
+        ? { provider: provider === 'both' ? 'anthropic' : provider, model: provider === 'both' ? undefined : model, temp, angle }
+        : { tags, provider, model, temp, prompt, length, form };
+      const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
-        body: JSON.stringify({ tags, provider, model, temp, prompt, length, form }),
+        body: JSON.stringify(body),
       });
       if (r.status === 401) {
         logout();
@@ -197,12 +208,15 @@ function Create({ lang, onCreated }) {
     );
   }
 
+  const isExpand = mode === 'expand';
+  const sortedStories = [...stories].sort((a, b) => (b.num || 0) - (a.num || 0));
+
   return (
     <div className="cfia-container" style={styles.root}>
       <section className="cfia-head-main" style={styles.head}>
-        <div style={styles.eyebrow}>◼ {t.eyebrow}</div>
-        <h1 style={styles.h1}>{t.h1}</h1>
-        <p style={styles.subtitle}>{t.subtitle}</p>
+        <div style={styles.eyebrow}>◼ {isExpand ? t.eyebrowExpand : t.eyebrow}</div>
+        <h1 style={styles.h1}>{isExpand ? t.h1Expand : t.h1}</h1>
+        <p style={styles.subtitle}>{isExpand ? t.subtitleExpand : t.subtitle}</p>
         <button type="button" onClick={logout} style={styles.logoutBtn}>{t.logout}</button>
       </section>
 
@@ -210,48 +224,126 @@ function Create({ lang, onCreated }) {
 
       <section style={styles.form}>
         <div style={styles.field}>
-          <label style={styles.label}>{t.tagsLabel}</label>
-          <div style={styles.tagBox}>
-            {tags.map((tg) => (
-              <span key={tg} style={styles.tagChip} onClick={() => removeTag(tg)}>
-                {tg} <span style={styles.tagX}>×</span>
-              </span>
-            ))}
-            <input
-              style={styles.tagInput}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={onTagKey}
-              placeholder={t.tagsHint}
-            />
-          </div>
-          <div style={styles.suggestWrap}>
-            <span style={styles.suggestLabel}>{t.tagSuggest} ·</span>
-            {SUGGESTED_TAGS.filter((s) => !tags.includes(s)).map((s) => (
-              <span key={s} style={styles.suggest} onClick={() => addTag(s)}>{s}</span>
-            ))}
+          <label style={styles.label}>{t.modeLabel}</label>
+          <div style={styles.segBox}>
+            <button type="button" onClick={() => setMode('new')} style={{ ...styles.segBtn, ...(mode === 'new' ? styles.segBtnOn : {}) }}>
+              {t.modeNew}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('expand');
+                if (provider === 'both') {
+                  setProvider('anthropic');
+                  setModel(MODELS_BY_PROVIDER.anthropic[0].id);
+                }
+              }}
+              style={{ ...styles.segBtn, ...(mode === 'expand' ? styles.segBtnOn : {}) }}
+            >
+              {t.modeExpand}
+            </button>
           </div>
         </div>
 
-        <div style={styles.field}>
-          <label style={styles.label}>{t.lengthLabel}</label>
-          <div style={styles.segBox}>
-            {['short', 'medium', 'long'].map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setLength(k)}
-                style={{ ...styles.segBtn, ...(length === k ? styles.segBtnOn : {}) }}>
-                {t.lengthOpts[k]}
-              </button>
-            ))}
-          </div>
-        </div>
+        {isExpand ? (
+          <>
+            <div style={styles.field}>
+              <label style={styles.label}>{t.parentLabel}</label>
+              <select style={styles.select} value={parentSlug} onChange={(e) => setParentSlug(e.target.value)}>
+                <option value="">{t.parentPh}</option>
+                {sortedStories.map((s) => (
+                  <option key={s.slug} value={s.slug}>
+                    {String(s.num).padStart(3, '0')} · {s.title?.[lang] || s.title?.es}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.angleLabel}</label>
+              <div style={styles.segBox}>
+                {['auto', 'secuela', 'precuela', 'lateral', 'eco'].map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setAngle(a)}
+                    style={{ ...styles.segBtn, ...(angle === a ? styles.segBtnOn : {}) }}
+                  >
+                    {t.angles[a]}
+                  </button>
+                ))}
+              </div>
+              <div style={styles.hint}>{t.angleHint}</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.field}>
+              <label style={styles.label}>{t.tagsLabel}</label>
+              <div style={styles.tagBox}>
+                {tags.map((tg) => (
+                  <span key={tg} style={styles.tagChip} onClick={() => removeTag(tg)}>
+                    {tg} <span style={styles.tagX}>×</span>
+                  </span>
+                ))}
+                <input
+                  style={styles.tagInput}
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={onTagKey}
+                  placeholder={t.tagsHint}
+                />
+              </div>
+              <div style={styles.suggestWrap}>
+                <span style={styles.suggestLabel}>{t.tagSuggest} ·</span>
+                {SUGGESTED_TAGS.filter((s) => !tags.includes(s)).map((s) => (
+                  <span key={s} style={styles.suggest} onClick={() => addTag(s)}>{s}</span>
+                ))}
+              </div>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.lengthLabel}</label>
+              <div style={styles.segBox}>
+                {['short', 'medium', 'long'].map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setLength(k)}
+                    style={{ ...styles.segBtn, ...(length === k ? styles.segBtnOn : {}) }}>
+                    {t.lengthOpts[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.formLabel}</label>
+              <select style={styles.select} value={form} onChange={(e) => setForm(e.target.value)}>
+                {FORMS.map((f) => (
+                  <option key={f.id} value={f.id}>{lang === 'es' ? f.es : f.en}</option>
+                ))}
+              </select>
+              <div style={styles.hint}>{t.formHint}</div>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.promptLabel}</label>
+              <textarea
+                style={styles.textarea}
+                rows={4}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder={t.promptPh}
+              />
+            </div>
+          </>
+        )}
 
         <div style={styles.field}>
           <label style={styles.label}>{t.providerLabel}</label>
           <div style={styles.segBox}>
-            {PROVIDERS.map((p) => (
+            {(isExpand ? PROVIDERS.filter((p) => p.id !== 'both') : PROVIDERS).map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -261,16 +353,6 @@ function Create({ lang, onCreated }) {
               </button>
             ))}
           </div>
-        </div>
-
-        <div style={styles.field}>
-          <label style={styles.label}>{t.formLabel}</label>
-          <select style={styles.select} value={form} onChange={(e) => setForm(e.target.value)}>
-            {FORMS.map((f) => (
-              <option key={f.id} value={f.id}>{lang === 'es' ? f.es : f.en}</option>
-            ))}
-          </select>
-          <div style={styles.hint}>{t.formHint}</div>
         </div>
 
         <div className="cfia-create-row" style={styles.row}>
@@ -291,17 +373,6 @@ function Create({ lang, onCreated }) {
           </div>
         </div>
 
-        <div style={styles.field}>
-          <label style={styles.label}>{t.promptLabel}</label>
-          <textarea
-            style={styles.textarea}
-            rows={4}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={t.promptPh}
-          />
-        </div>
-
         {error && (
           <div style={styles.error}>
             {t.err} {error}
@@ -310,8 +381,8 @@ function Create({ lang, onCreated }) {
 
         <button style={{ ...styles.submit, ...(loading ? styles.submitDisabled : {}) }}
           onClick={submit}
-          disabled={loading}>
-          {loading ? `${t.loading}` : `▸ ${t.submit}`}
+          disabled={loading || (isExpand && !parentSlug)}>
+          {loading ? `${t.loading}` : `▸ ${isExpand ? t.submitExpand : t.submit}`}
           {loading && <span style={styles.blink}>◼</span>}
         </button>
       </section>

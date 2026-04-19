@@ -8,29 +8,74 @@ datasource db {
 }
 
 model Story {
-  id        Int      @id @default(autoincrement())
-  slug      String   @unique
-  titleEs   String
-  titleEn   String
-  excerptEs String
-  excerptEn String
-  bodyEs    String?
-  bodyEn    String?
-  model     String
-  temp      Float
-  date      DateTime
-  minutes   Int
-  num       Int      @unique
-  illus     String
-  illusData String?
-  likes     Int      @default(0)
-  tags      Tag[]    @relation("StoryTags")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int       @id @default(autoincrement())
+  slug       String    @unique
+  titleEs    String
+  titleEn    String
+  excerptEs  String
+  excerptEn  String
+  bodyEs     String?
+  bodyEn     String?
+  model      String
+  temp       Float
+  date       DateTime
+  minutes    Int
+  num        Int       @unique
+  illus      String
+  illusData  String?
+  form       String?
+  likes      Int       @default(0)
+  tags       Tag[]     @relation("StoryTags")
+  authorId   Int?
+  author     Author?   @relation(fields: [authorId], references: [id])
+  universeId Int?
+  universe   Universe? @relation(fields: [universeId], references: [id])
+  parentId   Int?
+  parent     Story?    @relation("StoryThread", fields: [parentId], references: [id])
+  children   Story[]   @relation("StoryThread")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Tag {
   id      Int     @id @default(autoincrement())
   name    String  @unique
   stories Story[] @relation("StoryTags")
+}
+
+model Author {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  bioEs     String
+  bioEn     String
+  styleNote String
+  stories   Story[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Universe {
+  id        Int             @id @default(autoincrement())
+  slug      String          @unique
+  nameEs    String
+  nameEn    String
+  descEs    String
+  descEn    String
+  rulesEs   String
+  rulesEn   String
+  stories   Story[]
+  memory    UniverseMemory?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model UniverseMemory {
+  id         Int      @id @default(autoincrement())
+  universeId Int      @unique
+  universe   Universe @relation(fields: [universeId], references: [id])
+  summaryEs  String
+  summaryEn  String
+  entities   String
+  updatedAt  DateTime @updatedAt
 }

@@ -56,12 +56,14 @@ export async function generateStoryGemini({
   recentTitles = [],
   overusedWords = [],
   knobs = null,
+  contextBlock = '',
+  extraUser = '',
 }) {
-  const userPrompt = buildUserPrompt({ tags, prompt, length });
+  const userPrompt = buildUserPrompt({ tags, prompt, length, extraUser });
   const guardNote = buildTitleGuardNote({ recentTitles, overused: overusedWords });
   const activeKnobs = knobs || pickCreativityKnobs();
   const creativityNote = buildCreativityNote(activeKnobs);
-  const extra = guardNote + creativityNote;
+  const extra = contextBlock + guardNote + creativityNote;
   let parsed = await callModel({ model, temp, userPrompt, extraSystem: extra });
 
   const banned = titleHasBannedWord(parsed) ? 'último/last' : null;

@@ -8,6 +8,8 @@ import { generateStory } from './generate.js';
 import { generateStoryGemini } from './generateGemini.js';
 import { findOverusedWords } from './titleGuard.js';
 import { pickCreativityKnobs } from './creativityKnobs.js';
+import { loadDefaultContext, buildContextBlock } from './universeContext.js';
+import { updateUniverseMemory } from './universeMemory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -60,13 +62,19 @@ function serialize(story) {
     illusData: story.illusData ? JSON.parse(story.illusData) : null,
     likes: story.likes ?? 0,
     tags: story.tags.map((t) => t.name),
+    author: story.author ? { slug: story.author.slug, name: story.author.name } : null,
+    universe: story.universe ? { slug: story.universe.slug, name: { es: story.universe.nameEs, en: story.universe.nameEn } } : null,
+    parentSlug: story.parent ? story.parent.slug : null,
+    children: Array.isArray(story.children)
+      ? story.children.map((c) => ({ slug: c.slug, title: { es: c.titleEs, en: c.titleEn }, num: c.num }))
+      : [],
   };
 }
 
 app.get('/api/stories', async (_req, res) => {
   const stories = await prisma.story.findMany({
     orderBy: { date: 'desc' },
-    include: { tags: true },
+    include: { tags: true, author: true, universe: true, parent: true, children: true },
   });
   res.json(stories.map(serialize));
 });
@@ -76,7 +84,7 @@ app.post('/api/stories/:slug/like', async (req, res) => {
     const story = await prisma.story.update({
       where: { slug: req.params.slug },
       data: { likes: { increment: 1 } },
-      include: { tags: true },
+      include: { tags: true, author: true, universe: true, parent: true, children: true },
     });
     res.json({ slug: story.slug, likes: story.likes });
   } catch (e) {
@@ -105,10 +113,33 @@ app.delete('/api/stories/:slug/like', async (req, res) => {
 app.get('/api/stories/:slug', async (req, res) => {
   const story = await prisma.story.findUnique({
     where: { slug: req.params.slug },
-    include: { tags: true },
+    include: { tags: true, author: true, universe: true, parent: true, children: true },
   });
   if (!story) return res.status(404).json({ error: 'not found' });
   res.json(serialize(story));
+});
+
+app.get('/api/universe', async (_req, res) => {
+  const universe = await prisma.universe.findUnique({
+    where: { slug: 'tau-ceti-drift' },
+    include: { memory: true },
+  });
+  if (!universe) return res.status(404).json({ error: 'not found' });
+  const author = await prisma.author.findUnique({ where: { slug: 'echo-7' } });
+  res.json({
+    author: author ? { slug: author.slug, name: author.name, bio: { es: author.bioEs, en: author.bioEn } } : null,
+    universe: {
+      slug: universe.slug,
+      name: { es: universe.nameEs, en: universe.nameEn },
+      desc: { es: universe.descEs, en: universe.descEn },
+      rules: { es: universe.rulesEs, en: universe.rulesEn },
+    },
+    memory: universe.memory ? {
+      summary: { es: universe.memory.summaryEs, en: universe.memory.summaryEn },
+      entities: (() => { try { return JSON.parse(universe.memory.entities); } catch { return null; } })(),
+      updatedAt: universe.memory.updatedAt,
+    } : null,
+  });
 });
 
 async function uniqueSlug(base, num) {
@@ -120,7 +151,7 @@ async function uniqueSlug(base, num) {
   return slug;
 }
 
-async function persistStory({ gen, modelLabel, temp, tags }) {
+async function persistStory({ gen, modelLabel, temp, tags, authorId = null, universeId = null, parentId = null, form = null }) {
   const last = await prisma.story.findFirst({ orderBy: { num: 'desc' } });
   const num = (last?.num ?? 0) + 1;
   const slug = await uniqueSlug(gen.slugBase, num);
@@ -141,6 +172,10 @@ async function persistStory({ gen, modelLabel, temp, tags }) {
       num,
       illus: gen.illus,
       illusData: gen.illusData ? JSON.stringify(gen.illusData) : null,
+      authorId,
+      universeId,
+      parentId,
+      form,
       tags: {
         connectOrCreate: tags.map((name) => ({
           where: { name: name.toUpperCase() },
@@ -148,11 +183,13 @@ async function persistStory({ gen, modelLabel, temp, tags }) {
         })),
       },
     },
-    include: { tags: true },
+    include: { tags: true, author: true, universe: true, parent: true, children: true },
   });
 }
 
 app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Keep-Alive', 'timeout=120');
   try {
     const {
       tags = [],
@@ -185,6 +222,9 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
     const overusedWords = findOverusedWords(recentTitles, 2);
 
+    const ctx = await loadDefaultContext();
+    const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+
     const formId = form && form !== 'random' ? form : null;
     const claudeKnobs = wantClaude ? pickCreativityKnobs({ formId }) : null;
     let geminiKnobs = wantGemini ? pickCreativityKnobs({ formId }) : null;
@@ -207,7 +247,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       tasks.push({
         provider: 'claude',
         promise: withTimeout(
-          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs }),
+          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs, contextBlock }),
           GEN_TIMEOUT_MS, 'claude'
         ).then((gen) => {
           console.log(`[generate] claude done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -219,7 +259,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       tasks.push({
         provider: 'gemini',
         promise: withTimeout(
-          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs }),
+          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs, contextBlock }),
           GEN_TIMEOUT_MS, 'gemini'
         ).then((gen) => {
           console.log(`[generate] gemini done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -251,17 +291,138 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
 
     const stories = [];
     for (const { gen, modelLabel } of ok) {
-      const story = await persistStory({ gen, modelLabel, temp, tags });
+      const story = await persistStory({
+        gen, modelLabel, temp, tags,
+        authorId: ctx.author?.id ?? null,
+        universeId: ctx.universe?.id ?? null,
+        form: gen.knobs?.form?.id ?? null,
+      });
       stories.push(serialize(story));
     }
 
     if (provider === 'both') {
-      return res.json({ stories, errors: errs });
+      res.json({ stories, errors: errs });
+    } else {
+      res.json(stories[0]);
     }
-    res.json(stories[0]);
+
+    if (ctx.universe?.id) {
+      for (const { gen } of ok) {
+        updateUniverseMemory({ universeId: ctx.universe.id, story: gen })
+          .catch((e) => console.error('[memory] update failed:', e?.message || e));
+      }
+    }
+    return;
   } catch (e) {
     console.error('generate error:', e);
     res.status(500).json({ error: e.message || 'generation failed' });
+  }
+});
+
+app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) => {
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Keep-Alive', 'timeout=120');
+  try {
+    const parent = await prisma.story.findUnique({
+      where: { slug: req.params.slug },
+      include: { tags: true, author: true, universe: true },
+    });
+    if (!parent) return res.status(404).json({ error: 'not found' });
+
+    const { provider = 'anthropic', model, temp = 0.9, angle = 'auto', length = 'medium' } = req.body || {};
+    const wantClaude = provider === 'anthropic';
+    const wantGemini = provider === 'google';
+    if (wantClaude && !process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada' });
+    if (wantGemini && !process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY no está seteada' });
+
+    const claudeModel = model || 'claude-sonnet-4-5';
+    const geminiModel = model || 'gemini-2.5-flash';
+
+    const recentRows = await prisma.story.findMany({
+      orderBy: { date: 'desc' }, take: 30,
+      select: { titleEs: true, titleEn: true },
+    });
+    const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
+    const overusedWords = findOverusedWords(recentTitles, 2);
+
+    const ctx = await loadDefaultContext();
+    const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+
+    const angleLabels = {
+      auto: 'Elegí vos el ángulo más potente (secuela, precuela, lateral o eco).',
+      secuela: 'Continuación directa: mismos personajes, después de los hechos del cuento padre.',
+      precuela: 'Precuela: cómo se llegó a la situación del cuento padre.',
+      lateral: 'Lateral: otro personaje viviendo el mismo evento desde otro ángulo.',
+      eco: 'Eco: mismo lugar u objeto, otro tiempo o generación.',
+    };
+    const angleNote = angleLabels[angle] || angleLabels.auto;
+
+    const parentBody = parent.bodyEs || parent.excerptEs;
+    const extraUser = `
+EXPANDIR CUENTO PADRE
+=====================
+Título padre: ${parent.titleEs} / ${parent.titleEn}
+Slug padre: ${parent.slug}
+Tags del padre: ${parent.tags.map((t) => t.name).join(', ')}
+
+Cuerpo del cuento padre:
+${parentBody}
+
+=====================
+Escribí un NUEVO cuento que expanda este. Ángulo: ${angleNote}
+Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leído después del padre. No repitas la trama del padre; extendela.`;
+
+    const parentTags = parent.tags.map((t) => t.name);
+    const inheritedForm = parent.form || null;
+    const knobs = pickCreativityKnobs({ formId: inheritedForm });
+    console.log(`[expand] parent=${parent.slug} angle=${angle} provider=${provider} form=${knobs.form.id}${inheritedForm ? ' (inherited)' : ' (random — parent had no form)'}`);
+
+    const withTimeout = (p, ms, label) =>
+      Promise.race([
+        p,
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timeout after ${ms / 1000}s`)), ms)),
+      ]);
+    const GEN_TIMEOUT_MS = 80000;
+
+    let gen, modelLabel;
+    if (wantGemini) {
+      modelLabel = geminiModel;
+      gen = await withTimeout(
+        generateStoryGemini({ tags: parentTags, model: geminiModel, temp, prompt: '', length, recentTitles, overusedWords, knobs, contextBlock, extraUser }),
+        GEN_TIMEOUT_MS, 'gemini',
+      );
+    } else {
+      modelLabel = claudeModel;
+      gen = await withTimeout(
+        generateStory({ tags: parentTags, model: claudeModel, temp, prompt: '', length, recentTitles, overusedWords, knobs, contextBlock, extraUser }),
+        GEN_TIMEOUT_MS, 'claude',
+      );
+    }
+
+    req.setTimeout(300000);
+    res.setTimeout(300000);
+
+    const story = await persistStory({
+      gen, modelLabel, temp, tags: parentTags,
+      authorId: ctx.author?.id ?? null,
+      universeId: ctx.universe?.id ?? null,
+      parentId: parent.id,
+      form: gen.knobs?.form?.id ?? inheritedForm,
+    });
+
+    const full = await prisma.story.findUnique({
+      where: { id: story.id },
+      include: { tags: true, author: true, universe: true, parent: true, children: true },
+    });
+    res.json(serialize(full));
+
+    if (ctx.universe?.id) {
+      updateUniverseMemory({ universeId: ctx.universe.id, story: gen })
+        .catch((e) => console.error('[memory] update failed:', e?.message || e));
+    }
+  } catch (e) {
+    console.error('expand error:', e);
+    res.status(500).json({ error: e.message || 'expand failed' });
   }
 });
 
@@ -276,6 +437,6 @@ if (fs.existsSync(DIST_DIR)) {
 const server = app.listen(PORT, () => {
   console.log(`api listening on http://localhost:${PORT}`);
 });
-server.keepAliveTimeout = 120000;
-server.headersTimeout = 125000;
-server.requestTimeout = 300000;
+server.keepAliveTimeout = 75000;
+server.headersTimeout = 76000;
+server.requestTimeout = 0;
