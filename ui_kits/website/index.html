@@ -2,13 +2,66 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CFIA — Cuentos de Ficción de IA</title>
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="stylesheet" href="../../colors_and_type.css">
 <style>
-  body { background: #0a0a0f; color: #f5f3ee; margin: 0; font-family: 'Space Grotesk', sans-serif; }
+  body { background: #0a0a0f; color: #f5f3ee; margin: 0; font-family: 'Space Grotesk', sans-serif; -webkit-text-size-adjust: 100%; }
   * { box-sizing: border-box; }
+  img, svg { max-width: 100%; }
   @keyframes cfia-blink { 50% { opacity: 0; } }
+
+  /* Responsive container padding (replaces fixed 40px) */
+  .cfia-container { padding-left: clamp(16px, 4vw, 40px) !important; padding-right: clamp(16px, 4vw, 40px) !important; }
+
+  /* Nav: menu button only visible on mobile */
+  .cfia-nav-burger { display: none; }
+
+  @media (max-width: 860px) {
+    .cfia-nav { padding: 14px clamp(16px, 4vw, 40px) !important; }
+    .cfia-nav-brandtext { display: none !important; }
+    .cfia-nav-divider { display: none !important; }
+    .cfia-nav-links { display: none !important; }
+    .cfia-nav-links.cfia-open {
+      display: flex !important;
+      position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; gap: 0 !important;
+      background: #0a0a0f; border-bottom: 2px solid #f5f3ee;
+      padding: 8px 0;
+    }
+    .cfia-nav-links.cfia-open a {
+      padding: 14px clamp(16px, 4vw, 40px);
+      border-top: 1px solid #2a2a35;
+    }
+    .cfia-nav-burger {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; background: transparent; color: #f5f3ee;
+      border: 1px solid #2a2a35; cursor: pointer;
+      font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    }
+    .cfia-hero { padding: 56px 0 40px !important; }
+    .cfia-sec { padding: 36px 0 !important; }
+    .cfia-featured { padding: 32px 0 !important; }
+    .cfia-head-main { padding: 56px 0 32px !important; }
+    .cfia-rd-top { padding: 14px clamp(16px, 4vw, 40px) !important; }
+    .cfia-rd-article { padding: 40px clamp(16px, 4vw, 40px) !important; }
+    .cfia-rd-title { font-size: 40px !important; }
+    .cfia-rd-byline-row { grid-template-columns: 1fr !important; gap: 4px !important; }
+    .cfia-footer-inner { grid-template-columns: 1fr !important; gap: 32px !important; padding: 36px clamp(16px, 4vw, 40px) 48px !important; }
+    .cfia-cat-row { grid-template-columns: 56px 1fr !important; gap: 12px !important; }
+    .cfia-cat-rowright { grid-column: 2 !important; text-align: left !important; align-items: flex-start !important; }
+    .cfia-cat-rowright-bottom { justify-content: flex-start !important; }
+    .cfia-grid-auto { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important; gap: 14px !important; }
+    .cfia-latest { grid-template-columns: 1fr !important; }
+    .cfia-create-row { flex-direction: column !important; gap: 24px !important; }
+    .cfia-about-body { grid-template-columns: 1fr !important; gap: 32px !important; padding: 40px 0 !important; }
+    .cfia-about-pringrid { grid-template-columns: 1fr !important; gap: 14px !important; }
+  }
+
+  @media (max-width: 420px) {
+    .cfia-grid-auto { grid-template-columns: 1fr !important; }
+  }
 </style>
 </head>
 <body>

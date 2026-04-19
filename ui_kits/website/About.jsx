@@ -29,13 +29,13 @@ function About({ lang, onNav }) {
   };
 
   return (
-    <div style={abStyles.root}>
-      <section style={abStyles.hero}>
+    <div className="cfia-container" style={abStyles.root}>
+      <section className="cfia-head-main" style={abStyles.hero}>
         <div style={abStyles.eyebrow}>◼ {t.eyebrow}</div>
         <h1 style={abStyles.h1}>{t.title}</h1>
       </section>
       <hr style={abStyles.rule} />
-      <section style={abStyles.body}>
+      <section className="cfia-about-body" style={abStyles.body}>
         <div style={abStyles.illusCol}>
           <Illustration kind="target" seed={7} size={260} />
         </div>
@@ -46,7 +46,7 @@ function About({ lang, onNav }) {
       <hr style={abStyles.rule} />
       <section style={abStyles.principles}>
         <div style={abStyles.eyebrow}>{t.prin}</div>
-        <div style={abStyles.prinGrid}>
+        <div className="cfia-about-pringrid" style={abStyles.prinGrid}>
           {t.principles.map(([n, h, b]) => (
             <div key={n} style={abStyles.prinCell}>
               <div style={abStyles.prinNum}>{n}</div>

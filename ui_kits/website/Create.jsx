@@ -164,8 +164,8 @@ function Create({ lang, onCreated }) {
 
   if (!auth) {
     return (
-      <div style={styles.root}>
-        <section style={styles.head}>
+      <div className="cfia-container" style={styles.root}>
+        <section className="cfia-head-main" style={styles.head}>
           <div style={styles.eyebrow}>◼ {t.lockEyebrow}</div>
           <h1 style={styles.h1}>{t.lockH1}</h1>
           <p style={styles.subtitle}>{t.lockSubtitle}</p>
@@ -198,8 +198,8 @@ function Create({ lang, onCreated }) {
   }
 
   return (
-    <div style={styles.root}>
-      <section style={styles.head}>
+    <div className="cfia-container" style={styles.root}>
+      <section className="cfia-head-main" style={styles.head}>
         <div style={styles.eyebrow}>◼ {t.eyebrow}</div>
         <h1 style={styles.h1}>{t.h1}</h1>
         <p style={styles.subtitle}>{t.subtitle}</p>
@@ -273,7 +273,7 @@ function Create({ lang, onCreated }) {
           <div style={styles.hint}>{t.formHint}</div>
         </div>
 
-        <div style={styles.row}>
+        <div className="cfia-create-row" style={styles.row}>
           {!isBoth ? (
             <div style={{ ...styles.field, flex: 1 }}>
               <label style={styles.label}>{t.modelLabel}</label>

@@ -27,23 +27,23 @@ function Reader({ story, lang, onBack }) {
     <div style={rdStyles.root}>
       <div style={rdStyles.progress}><div style={{ ...rdStyles.progressFill, width: `${progress * 100}%` }} /></div>
 
-      <div style={rdStyles.top}>
+      <div className="cfia-rd-top" style={rdStyles.top}>
         <a style={rdStyles.back} onClick={onBack}>{t.back}</a>
         <div style={rdStyles.mono}>{t.chap} {String(story.num).padStart(3, '0')} · {story.minutes} MIN</div>
       </div>
 
-      <article style={rdStyles.article}>
+      <article className="cfia-rd-article" style={rdStyles.article}>
         <header style={rdStyles.header}>
           <div style={rdStyles.illusWrap}>
             <Illustration kind={story.illus} seed={story.num} size={240} data={story.illusData} />
           </div>
-          <h1 style={rdStyles.title}>{story.title[lang]}</h1>
+          <h1 className="cfia-rd-title" style={rdStyles.title}>{story.title[lang]}</h1>
           <div style={rdStyles.bylineStack}>
-            <div style={rdStyles.bylineRow}>
+            <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
               <span style={rdStyles.bylineLbl}>{t.by}</span>
               <span style={rdStyles.bylineVal}>{story.model} · TEMP {story.temp}</span>
             </div>
-            <div style={rdStyles.bylineRow}>
+            <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
               <span style={rdStyles.bylineLbl}>{t.curated}</span>
               <span style={rdStyles.bylineVal}>Redacción CFIA · {story.date}</span>
             </div>

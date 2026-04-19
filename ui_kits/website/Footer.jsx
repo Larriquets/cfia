@@ -17,7 +17,7 @@ function Footer({ lang }) {
   return (
     <footer style={footerStyles.root}>
       <div style={footerStyles.topRule} />
-      <div style={footerStyles.inner}>
+      <div className="cfia-footer-inner" style={footerStyles.inner}>
         <div style={footerStyles.col}>
           <div style={footerStyles.eyebrow}>◼ CFIA</div>
           <div style={footerStyles.manifest}>{txt.manifest}</div>

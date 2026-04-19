@@ -10,8 +10,8 @@ function Catalog({ stories, lang, onOpen }) {
     ? { eyebrow: 'CATÁLOGO', title: 'Todos los cuentos', count: 'CUENTOS', filter: 'FILTRAR POR TEMA', all: 'TODOS', view: 'VISTA', list: 'LISTA', grid: 'GRILLA' }
     : { eyebrow: 'CATALOG', title: 'All stories', count: 'STORIES', filter: 'FILTER BY THEME', all: 'ALL', view: 'VIEW', list: 'LIST', grid: 'GRID' };
   return (
-    <div style={catStyles.root}>
-      <section style={catStyles.head}>
+    <div className="cfia-container" style={catStyles.root}>
+      <section className="cfia-head-main" style={catStyles.head}>
         <div style={catStyles.eyebrow}>◼ {t.eyebrow} · {filtered.length} {t.count}</div>
         <h1 style={catStyles.h1}>{t.title}</h1>
       </section>
@@ -49,15 +49,15 @@ function Catalog({ stories, lang, onOpen }) {
       {view === 'list' ? (
         <section style={catStyles.list}>
           {filtered.map(s => (
-            <div key={s.slug} style={catStyles.row} onClick={() => onOpen(s.slug)}>
+            <div key={s.slug} className="cfia-cat-row" style={catStyles.row} onClick={() => onOpen(s.slug)}>
               <div style={catStyles.num}>{String(s.num).padStart(3, '0')}</div>
               <div style={catStyles.mid}>
                 <div style={catStyles.rowTitle}>{s.title[lang]}</div>
                 <div style={catStyles.rowMeta}>{s.tags.join(' · ')} · {s.model} · TEMP {s.temp}</div>
               </div>
-              <div style={catStyles.rowRight}>
+              <div className="cfia-cat-rowright" style={catStyles.rowRight}>
                 <div style={catStyles.rowDate}>{s.date}</div>
-                <div style={catStyles.rowRightBottom}>
+                <div className="cfia-cat-rowright-bottom" style={catStyles.rowRightBottom}>
                   {LikeButton ? (
                     <LikeButton
                       slug={s.slug}
@@ -73,7 +73,7 @@ function Catalog({ stories, lang, onOpen }) {
           ))}
         </section>
       ) : (
-        <section style={catStyles.grid}>
+        <section className="cfia-grid-auto" style={catStyles.grid}>
           {filtered.map(s => (
             <div key={s.slug} style={catStyles.tile} onClick={() => onOpen(s.slug)}>
               <div style={catStyles.tileImg}>
@@ -125,7 +125,7 @@ const catStyles = {
   mid: { display: 'flex', flexDirection: 'column', gap: 6 },
   rowTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, color: '#f5f3ee', letterSpacing: '-0.01em', fontWeight: 500 },
   rowMeta: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6b6860', letterSpacing: '0.12em', textTransform: 'uppercase' },
-  rowRight: { textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 4 },
+  rowRight: { textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' },
   rowDate: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#b8b5ad', letterSpacing: '0.08em' },
   rowMin: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#e8b84a', letterSpacing: '0.08em' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, paddingTop: 12 },

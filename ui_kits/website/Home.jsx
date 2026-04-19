@@ -42,8 +42,8 @@ function Home({ stories, lang, onOpen, onNav }) {
       };
 
   return (
-    <div style={homeStyles.root}>
-      <section style={homeStyles.hero}>
+    <div className="cfia-container" style={homeStyles.root}>
+      <section className="cfia-hero" style={homeStyles.hero}>
         <div style={homeStyles.eyebrow}>◼ {t.eyebrow}</div>
         <h1 style={homeStyles.h1}>
           {t.hero1}<br />
@@ -64,7 +64,7 @@ function Home({ stories, lang, onOpen, onNav }) {
 
       {featured && (
         <>
-          <section style={homeStyles.featuredSec}>
+          <section className="cfia-featured" style={homeStyles.featuredSec}>
             <div style={homeStyles.featBadge}>{t.featBadge}</div>
             <StoryCard story={featured} lang={lang} onOpen={onOpen} featured={true} />
           </section>
@@ -72,7 +72,7 @@ function Home({ stories, lang, onOpen, onNav }) {
         </>
       )}
       {!featured && (
-        <section style={homeStyles.featuredSec}>
+        <section className="cfia-featured" style={homeStyles.featuredSec}>
           <div style={homeStyles.featBadge}>{t.featBadge}</div>
           <p style={{ fontFamily: "'JetBrains Mono', monospace", color: '#6b6860', fontSize: 13, letterSpacing: '0.1em' }}>
             {lang === 'es' ? 'Aún no hay cuentos. Generá el primero desde CREAR.' : 'No stories yet. Generate the first one from CREATE.'}
@@ -81,7 +81,7 @@ function Home({ stories, lang, onOpen, onNav }) {
       )}
       {!featured && <hr style={homeStyles.rule} />}
 
-      <section style={homeStyles.secWrap}>
+      <section className="cfia-sec" style={homeStyles.secWrap}>
         <div style={homeStyles.secHead}>
           <div>
             <div style={homeStyles.eyebrow}>{t.latest}</div>
@@ -89,14 +89,14 @@ function Home({ stories, lang, onOpen, onNav }) {
           </div>
           <a style={homeStyles.seeAll} onClick={() => onNav('catalog')}>{t.seeAll}</a>
         </div>
-        <div style={homeStyles.latestInner}>
+        <div className="cfia-latest" style={homeStyles.latestInner}>
           {latest.map(s => <StoryCard key={s.slug} story={s} lang={lang} onOpen={onOpen} />)}
         </div>
       </section>
 
       <hr style={homeStyles.ruleHair} />
 
-      <section style={homeStyles.secWrap}>
+      <section className="cfia-sec" style={homeStyles.secWrap}>
         <div style={homeStyles.secHead}>
           <div>
             <div style={homeStyles.eyebrow}>{t.catHead}</div>
@@ -121,7 +121,7 @@ function Home({ stories, lang, onOpen, onNav }) {
       {popular.length ? (
         <>
           <hr style={homeStyles.ruleHair} />
-          <section style={homeStyles.secWrap}>
+          <section className="cfia-sec" style={homeStyles.secWrap}>
             <div style={homeStyles.secHead}>
               <div>
                 <div style={homeStyles.eyebrow}>{t.popHead}</div>
@@ -129,7 +129,7 @@ function Home({ stories, lang, onOpen, onNav }) {
               </div>
               <a style={homeStyles.seeAll} onClick={() => onNav('catalog')}>{t.seeAll}</a>
             </div>
-            <div style={homeStyles.latestInner}>
+            <div className="cfia-latest" style={homeStyles.latestInner}>
               {popular.map(s => <StoryCard key={s.slug} story={s} lang={lang} onOpen={onOpen} />)}
             </div>
           </section>
@@ -138,7 +138,7 @@ function Home({ stories, lang, onOpen, onNav }) {
 
       <hr style={homeStyles.ruleHair} />
 
-      <section style={homeStyles.secWrap}>
+      <section className="cfia-sec" style={homeStyles.secWrap}>
         <div style={homeStyles.secHead}>
           <div>
             <div style={homeStyles.eyebrow}>{t.gridHead}</div>
@@ -146,7 +146,7 @@ function Home({ stories, lang, onOpen, onNav }) {
           </div>
           <a style={homeStyles.seeAll} onClick={() => onNav('catalog')}>{t.seeAll}</a>
         </div>
-        <div style={homeStyles.grid}>
+        <div className="cfia-grid-auto" style={homeStyles.grid}>
           {gridStories.map(s => (
             <div key={s.slug} style={homeStyles.tile} onClick={() => onOpen(s.slug)}>
               <div style={homeStyles.tileImg}>
@@ -190,7 +190,7 @@ const homeStyles = {
   secHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, gap: 20, flexWrap: 'wrap' },
   secSub: { fontFamily: "'Instrument Serif', serif", fontSize: 18, color: '#6b6860', marginTop: 6 },
   seeAll: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, color: '#f5f3ee', borderBottom: '1px solid #6b6860', cursor: 'pointer' },
-  latestInner: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 },
+  latestInner: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 },
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 10 },
   chip: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#f5f3ee', border: '1px solid #2a2a35', padding: '10px 14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, background: '#0f0f16' },
   chipDot: { color: '#6b6860' },

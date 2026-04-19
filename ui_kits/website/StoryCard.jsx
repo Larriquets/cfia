@@ -48,13 +48,13 @@ function StoryCard({ story, lang, onOpen, featured = false }) {
 
 const cardStyles = {
   card: { background: '#111118', padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12 },
-  featured: { background: '#111118', padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 14 },
+  featured: { background: '#111118', padding: 'clamp(20px, 4vw, 32px) clamp(20px, 4vw, 36px)', display: 'flex', flexDirection: 'column', gap: 14 },
   metaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   metaRight: { display: 'flex', alignItems: 'center', gap: 10 },
   eyebrow: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#b8b5ad', textTransform: 'uppercase', display: 'flex', alignItems: 'center' },
   amberSq: { display: 'inline-block', width: 8, height: 8, background: '#e8b84a', marginRight: 8 },
   title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, color: '#f5f3ee', letterSpacing: '-0.02em', lineHeight: 1.1, fontWeight: 500, margin: 0 },
-  titleFeat: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 44, color: '#f5f3ee', letterSpacing: '-0.02em', lineHeight: 1.05, fontWeight: 500, margin: 0 },
+  titleFeat: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 'clamp(28px, 5vw, 44px)', color: '#f5f3ee', letterSpacing: '-0.02em', lineHeight: 1.05, fontWeight: 500, margin: 0 },
   byline: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.08em', color: '#b8b5ad' },
   excerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 18, lineHeight: 1.5, color: '#b8b5ad', margin: 0 },
   tagRow: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 },
