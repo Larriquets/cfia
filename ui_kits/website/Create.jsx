@@ -7,8 +7,18 @@ const MODELS = [
 ];
 
 const SUGGESTED_TAGS = [
-  'MARTE', 'SOLEDAD', 'FAMILIA', 'COLONIAS', 'LENGUAJE', 'IA',
-  'EXOPLANETAS', 'MEMORIA', 'ROBÓTICA', 'DUELO', 'TIEMPO', 'ESTACIONES',
+  'MARTE', 'LUNA', 'VENUS', 'EXOPLANETAS', 'COLONIAS', 'ESTACIONES',
+  'ASTEROIDES', 'ÓRBITA', 'CINTURÓN', 'ECLIPSE', 'GRAVEDAD', 'VACÍO',
+  'IA', 'ROBÓTICA', 'ANDROIDES', 'CONCIENCIA', 'MENTE', 'ALGORITMO',
+  'LENGUAJE', 'TRADUCCIÓN', 'SEÑAL', 'CONTACTO', 'SILENCIO', 'RUIDO',
+  'MEMORIA', 'OLVIDO', 'ARCHIVO', 'DATOS', 'COPIA', 'BACKUP',
+  'TIEMPO', 'RELOJ', 'DILATACIÓN', 'FUTURO', 'PASADO', 'LOOP',
+  'FAMILIA', 'MADRE', 'PADRE', 'HIJO', 'ABUELA', 'HERMANOS',
+  'SOLEDAD', 'DUELO', 'PÉRDIDA', 'NOSTALGIA', 'DESEO', 'CULPA',
+  'CUERPO', 'GENÉTICA', 'CLON', 'PROSTÉTICO', 'ENFERMEDAD', 'VEJEZ',
+  'BIOLOGÍA', 'ECOLOGÍA', 'EXTINCIÓN', 'JARDÍN', 'ANIMALES', 'SEMILLAS',
+  'TRABAJO', 'OFICIO', 'BUROCRACIA', 'MINERÍA', 'COMERCIO', 'RITUAL',
+  'RELIGIÓN', 'FE', 'DIOSES', 'PROFECÍA', 'SUEÑO', 'VISIÓN',
 ];
 
 function Create({ lang, onCreated }) {
@@ -16,13 +26,14 @@ function Create({ lang, onCreated }) {
   const [tagInput, setTagInput] = useState('');
   const [model, setModel] = useState('claude-sonnet-4-5');
   const [temp, setTemp] = useState(0.9);
+  const [length, setLength] = useState('medium');
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
-    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
+    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
 
   const addTag = (v) => {
     const clean = v.trim().toUpperCase();
@@ -49,7 +60,7 @@ function Create({ lang, onCreated }) {
       const r = await fetch('/api/stories/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags, model, temp, prompt }),
+        body: JSON.stringify({ tags, model, temp, prompt, length }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
@@ -95,6 +106,21 @@ function Create({ lang, onCreated }) {
             <span style={styles.suggestLabel}>{t.tagSuggest} ·</span>
             {SUGGESTED_TAGS.filter((s) => !tags.includes(s)).map((s) => (
               <span key={s} style={styles.suggest} onClick={() => addTag(s)}>{s}</span>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>{t.lengthLabel}</label>
+          <div style={styles.segBox}>
+            {['short', 'medium', 'long'].map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setLength(k)}
+                style={{ ...styles.segBtn, ...(length === k ? styles.segBtnOn : {}) }}>
+                {t.lengthOpts[k]}
+              </button>
             ))}
           </div>
         </div>
@@ -163,6 +189,9 @@ const styles = {
   suggestLabel: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860' },
   suggest: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#b8b5ad', border: '1px solid #3a3832', padding: '4px 8px', cursor: 'pointer' },
   select: { background: '#0a0a0f', border: '1px solid #3a3832', color: '#f5f3ee', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: '0.1em', padding: '12px 14px', outline: 'none' },
+  segBox: { display: 'flex', gap: 0, border: '1px solid #3a3832' },
+  segBtn: { flex: 1, background: '#0a0a0f', border: 'none', borderRight: '1px solid #3a3832', color: '#b8b5ad', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.14em', padding: '14px 10px', cursor: 'pointer' },
+  segBtnOn: { background: '#e8b84a', color: '#0a0a0f' },
   range: { accentColor: '#e8b84a', width: '100%' },
   textarea: { background: '#0a0a0f', border: '1px solid #3a3832', color: '#f5f3ee', fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, lineHeight: 1.5, padding: 14, outline: 'none', resize: 'vertical' },
   submit: { alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: '0.18em', background: '#e8b84a', color: '#0a0a0f', border: 'none', padding: '16px 28px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10 },

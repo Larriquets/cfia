@@ -54,9 +54,9 @@ app.post('/api/stories/generate', async (req, res) => {
       return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada en .env' });
     }
 
-    const { tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '' } = req.body || {};
+    const { tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '', length = 'medium' } = req.body || {};
 
-    const gen = await generateStory({ tags, model, temp, prompt });
+    const gen = await generateStory({ tags, model, temp, prompt, length });
 
     const last = await prisma.story.findFirst({ orderBy: { num: 'desc' } });
     const num = (last?.num ?? 0) + 1;

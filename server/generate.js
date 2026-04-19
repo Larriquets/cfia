@@ -19,17 +19,33 @@ Devolvés SIEMPRE un único objeto JSON válido, sin markdown, sin texto antes n
   "illus": "orbit" | "target" | "signal" | "horizon"
 }
 
-Reglas:
+Reglas de forma:
 - bodyEs y bodyEn: entre 4 y 8 párrafos cada uno. Deben ser la MISMA historia, no versiones distintas.
 - Nunca uses comillas triples ni bloques de código. Solo JSON puro.
 - Los títulos y excerpts NO deben ser traducciones palabra por palabra — adaptá para que suenen naturales en cada idioma.
-- illus: elegí el que mejor coincida con la atmósfera (orbit=espacio/planetas, target=contacto/precisión, signal=comunicación/lenguaje, horizon=memoria/exoplanetas).`;
+- illus: elegí el que mejor coincida con la atmósfera (orbit=espacio/planetas, target=contacto/precisión, signal=comunicación/lenguaje, horizon=memoria/exoplanetas).
 
-function buildUserPrompt({ tags, temp, prompt }) {
+Reglas de originalidad (CRÍTICAS):
+- PROHIBIDO usar nombres, personajes, escenarios, tecnologías o términos reconocibles de obras publicadas: HAL 9000, Skynet, Trantor, Ringworld, Arrakis, Foundation, Hyperion, Gethen, Ekumen, Culture, Tyrell, Weyland-Yutani, Dune, Fundación, Neuromancer, Babel-17, psicohistoria, cilindros de O'Neill, etc. Si se te cruza un nombre que suena familiar, cambialo.
+- PROHIBIDAS las aperturas clichés: "Era el año XXXX", "En un futuro no muy lejano", "El último humano", "La humanidad había colonizado", "Los robots soñaban con", "Tres leyes de la robótica", "Cuando desperté", "El sol se puso sobre la colonia". Empezá en una escena concreta, con un detalle específico.
+- Cada cuento debe tener UN giro conceptual específico — una idea que recontextualiza algo al final, no solo un setting exótico. El setting es contexto; la idea es el cuento. Sin giro ≠ cuento, es una postal.
+- Preferí lo íntimo/cotidiano sobre lo épico: una conversación, un gesto, un objeto, una pérdida. Escala humana, no galáctica. Evitá guerras, imperios, apocalipsis, batallas espaciales.
+- Evitá tropos gastados sin reinventarlos: IA que se rebela, viaje en el tiempo para salvar al ser amado, clon que descubre que es clon, último humano, primer contacto con aliens humanoides, distopía totalitaria genérica. Si usás alguno, tiene que ser desde un ángulo que no se haya visto.
+- Los nombres propios (personajes, lugares, naves, compañías) deben sonar plausibles pero no existir en ninguna obra conocida. Inventá.`;
+
+const LENGTH_SPECS = {
+  short:  { paras: '3 a 4',  minutes: '2 a 4',   label: 'breve' },
+  medium: { paras: '5 a 6',  minutes: '5 a 7',   label: 'media' },
+  long:   { paras: '7 a 9',  minutes: '8 a 12',  label: 'larga' },
+};
+
+function buildUserPrompt({ tags, prompt, length }) {
   const tagList = (tags || []).map((t) => t.toUpperCase()).join(', ');
+  const spec = LENGTH_SPECS[length] || LENGTH_SPECS.medium;
   const parts = [];
   if (tagList) parts.push(`Tags temáticos: ${tagList}.`);
   if (prompt && prompt.trim()) parts.push(`Semilla/idea: ${prompt.trim()}`);
+  parts.push(`Longitud: ${spec.label}. Escribí entre ${spec.paras} párrafos por idioma. El campo "minutes" debe estar entre ${spec.minutes}.`);
   parts.push(`Escribí un cuento que respete esos tags como anclas temáticas.`);
   return parts.join('\n\n');
 }
@@ -61,13 +77,13 @@ function validate(obj) {
   return obj;
 }
 
-export async function generateStory({ tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '' }) {
+export async function generateStory({ tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '', length = 'medium' }) {
   const resp = await client.messages.create({
     model,
     max_tokens: 4096,
     temperature: temp,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt({ tags, temp, prompt }) }],
+    messages: [{ role: 'user', content: buildUserPrompt({ tags, prompt, length }) }],
   });
   const text = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
   const parsed = validate(extractJson(text));
