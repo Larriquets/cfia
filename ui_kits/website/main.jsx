@@ -38,10 +38,16 @@ function App() {
 
   const onOpen = (s) => { setSlug(s); setRoute('reader'); window.scrollTo(0, 0); };
   const onNav = (r) => { setRoute(r); window.scrollTo(0, 0); };
-  const onCreated = (story) => {
-    setStories((prev) => [story, ...(prev || [])]);
-    setSlug(story.slug);
-    setRoute('reader');
+  const onCreated = (result) => {
+    const list = Array.isArray(result) ? result : [result];
+    if (!list.length) return;
+    setStories((prev) => [...list, ...(prev || [])]);
+    if (list.length === 1) {
+      setSlug(list[0].slug);
+      setRoute('reader');
+    } else {
+      setRoute('catalog');
+    }
     window.scrollTo(0, 0);
   };
 

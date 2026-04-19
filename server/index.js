@@ -50,6 +50,47 @@ app.get('/api/stories/:slug', async (req, res) => {
   res.json(serialize(story));
 });
 
+async function uniqueSlug(base, num) {
+  let slug = base || `cuento-${num}`;
+  let i = 1;
+  while (await prisma.story.findUnique({ where: { slug } })) {
+    slug = `${base}-${++i}`;
+  }
+  return slug;
+}
+
+async function persistStory({ gen, modelLabel, temp, tags }) {
+  const last = await prisma.story.findFirst({ orderBy: { num: 'desc' } });
+  const num = (last?.num ?? 0) + 1;
+  const slug = await uniqueSlug(gen.slugBase, num);
+
+  return prisma.story.create({
+    data: {
+      slug,
+      titleEs: gen.titleEs,
+      titleEn: gen.titleEn,
+      excerptEs: gen.excerptEs,
+      excerptEn: gen.excerptEn,
+      bodyEs: gen.bodyEs.join('\n\n'),
+      bodyEn: gen.bodyEn.join('\n\n'),
+      model: modelLabel.toUpperCase(),
+      temp,
+      date: new Date(),
+      minutes: gen.minutes,
+      num,
+      illus: gen.illus,
+      illusData: gen.illusData ? JSON.stringify(gen.illusData) : null,
+      tags: {
+        connectOrCreate: tags.map((name) => ({
+          where: { name: name.toUpperCase() },
+          create: { name: name.toUpperCase() },
+        })),
+      },
+    },
+    include: { tags: true },
+  });
+}
+
 app.post('/api/stories/generate', async (req, res) => {
   try {
     const {
@@ -61,56 +102,63 @@ app.post('/api/stories/generate', async (req, res) => {
       length = 'medium',
     } = req.body || {};
 
-    const isGemini = provider === 'google';
-    const resolvedModel = model || (isGemini ? 'gemini-2.5-flash' : 'claude-sonnet-4-5');
+    const wantClaude = provider === 'anthropic' || provider === 'both';
+    const wantGemini = provider === 'google' || provider === 'both';
 
-    if (isGemini && !process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY no está seteada en .env' });
-    }
-    if (!isGemini && !process.env.ANTHROPIC_API_KEY) {
+    if (wantClaude && !process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada en .env' });
     }
-
-    const gen = isGemini
-      ? await generateStoryGemini({ tags, model: resolvedModel, temp, prompt, length })
-      : await generateStory({ tags, model: resolvedModel, temp, prompt, length });
-
-    const last = await prisma.story.findFirst({ orderBy: { num: 'desc' } });
-    const num = (last?.num ?? 0) + 1;
-
-    let slug = gen.slugBase || `cuento-${num}`;
-    let i = 1;
-    while (await prisma.story.findUnique({ where: { slug } })) {
-      slug = `${gen.slugBase}-${++i}`;
+    if (wantGemini && !process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY no está seteada en .env' });
     }
 
-    const story = await prisma.story.create({
-      data: {
-        slug,
-        titleEs: gen.titleEs,
-        titleEn: gen.titleEn,
-        excerptEs: gen.excerptEs,
-        excerptEn: gen.excerptEn,
-        bodyEs: gen.bodyEs.join('\n\n'),
-        bodyEn: gen.bodyEn.join('\n\n'),
-        model: resolvedModel.toUpperCase(),
-        temp,
-        date: new Date(),
-        minutes: gen.minutes,
-        num,
-        illus: gen.illus,
-        illusData: gen.illusData ? JSON.stringify(gen.illusData) : null,
-        tags: {
-          connectOrCreate: tags.map((name) => ({
-            where: { name: name.toUpperCase() },
-            create: { name: name.toUpperCase() },
-          })),
-        },
-      },
-      include: { tags: true },
+    const claudeModel = (!model || provider === 'both' || provider === 'google') ? 'claude-sonnet-4-5' : model;
+    const geminiModel = (!model || provider === 'both' || provider === 'anthropic') ? 'gemini-2.5-flash' : model;
+
+    const tasks = [];
+    if (wantClaude) {
+      tasks.push({
+        provider: 'claude',
+        promise: generateStory({ tags, model: claudeModel, temp, prompt, length })
+          .then((gen) => ({ gen, modelLabel: claudeModel })),
+      });
+    }
+    if (wantGemini) {
+      tasks.push({
+        provider: 'gemini',
+        promise: generateStoryGemini({ tags, model: geminiModel, temp, prompt, length })
+          .then((gen) => ({ gen, modelLabel: geminiModel })),
+      });
+    }
+
+    const results = await Promise.allSettled(tasks.map((t) => t.promise));
+    const ok = [];
+    const errs = [];
+    results.forEach((r, i) => {
+      const prov = tasks[i].provider;
+      if (r.status === 'fulfilled') {
+        ok.push(r.value);
+      } else {
+        const msg = r.reason?.message || String(r.reason);
+        console.error(`[generate] ${prov} failed:`, r.reason);
+        errs.push(`${prov}: ${msg}`);
+      }
     });
 
-    res.json(serialize(story));
+    if (!ok.length) {
+      return res.status(500).json({ error: errs.join(' · ') || 'generation failed' });
+    }
+
+    const stories = [];
+    for (const { gen, modelLabel } of ok) {
+      const story = await persistStory({ gen, modelLabel, temp, tags });
+      stories.push(serialize(story));
+    }
+
+    if (provider === 'both') {
+      return res.json({ stories, errors: errs });
+    }
+    res.json(stories[0]);
   } catch (e) {
     console.error('generate error:', e);
     res.status(500).json({ error: e.message || 'generation failed' });

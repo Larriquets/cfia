@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 function Catalog({ stories, lang, onOpen }) {
   const { Illustration } = window;
   const [activeTag, setActiveTag] = useState(null);
-  const [view, setView] = useState('list');
+  const [view, setView] = useState('grid');
   const allTags = [...new Set(stories.flatMap(s => s.tags))];
   const filtered = activeTag ? stories.filter(s => s.tags.includes(activeTag)) : stories;
   const t = lang === 'es'

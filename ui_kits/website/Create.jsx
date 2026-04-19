@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 const PROVIDERS = [
   { id: 'anthropic', label: 'CLAUDE' },
   { id: 'google', label: 'GEMINI' },
+  { id: 'both', label: 'AMBAS' },
 ];
 
 const MODELS_BY_PROVIDER = {
@@ -48,12 +49,13 @@ function Create({ lang, onCreated }) {
     ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
     : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
 
-  const modelsForProvider = MODELS_BY_PROVIDER[provider] || MODELS_BY_PROVIDER.anthropic;
+  const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
+  const isBoth = provider === 'both';
 
   const selectProvider = (p) => {
     if (p === provider) return;
     setProvider(p);
-    setModel(MODELS_BY_PROVIDER[p][0].id);
+    if (p !== 'both') setModel(MODELS_BY_PROVIDER[p][0].id);
   };
 
   const addTag = (v) => {
@@ -87,8 +89,13 @@ function Create({ lang, onCreated }) {
         const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
         throw new Error(j.error || `HTTP ${r.status}`);
       }
-      const story = await r.json();
-      onCreated(story);
+      const data = await r.json();
+      if (Array.isArray(data.stories)) {
+        if (data.errors && data.errors.length) setError(data.errors.join(' · '));
+        onCreated(data.stories);
+      } else {
+        onCreated(data);
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -162,12 +169,14 @@ function Create({ lang, onCreated }) {
         </div>
 
         <div style={styles.row}>
-          <div style={{ ...styles.field, flex: 1 }}>
-            <label style={styles.label}>{t.modelLabel}</label>
-            <select style={styles.select} value={model} onChange={(e) => setModel(e.target.value)}>
-              {modelsForProvider.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
-          </div>
+          {!isBoth ? (
+            <div style={{ ...styles.field, flex: 1 }}>
+              <label style={styles.label}>{t.modelLabel}</label>
+              <select style={styles.select} value={model} onChange={(e) => setModel(e.target.value)}>
+                {modelsForProvider.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </div>
+          ) : null}
           <div style={{ ...styles.field, flex: 1 }}>
             <label style={styles.label}>{t.tempLabel} · {temp.toFixed(2)}</label>
             <input type="range" min="0" max="1" step="0.05" value={temp}
