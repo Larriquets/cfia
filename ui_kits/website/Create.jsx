@@ -1,10 +1,22 @@
 import React, { useState } from 'react';
 
-const MODELS = [
-  { id: 'claude-sonnet-4-5', label: 'CLAUDE SONNET 4.5' },
-  { id: 'claude-opus-4-5', label: 'CLAUDE OPUS 4.5' },
-  { id: 'claude-haiku-4-5', label: 'CLAUDE HAIKU 4.5' },
+const PROVIDERS = [
+  { id: 'anthropic', label: 'CLAUDE' },
+  { id: 'google', label: 'GEMINI' },
 ];
+
+const MODELS_BY_PROVIDER = {
+  anthropic: [
+    { id: 'claude-sonnet-4-5', label: 'CLAUDE SONNET 4.5' },
+    { id: 'claude-opus-4-5', label: 'CLAUDE OPUS 4.5' },
+    { id: 'claude-haiku-4-5', label: 'CLAUDE HAIKU 4.5' },
+  ],
+  google: [
+    { id: 'gemini-2.5-pro', label: 'GEMINI 2.5 PRO' },
+    { id: 'gemini-2.5-flash', label: 'GEMINI 2.5 FLASH' },
+    { id: 'gemini-2.5-flash-lite', label: 'GEMINI 2.5 FLASH LITE' },
+  ],
+};
 
 const SUGGESTED_TAGS = [
   'MARTE', 'LUNA', 'VENUS', 'EXOPLANETAS', 'COLONIAS', 'ESTACIONES',
@@ -24,6 +36,7 @@ const SUGGESTED_TAGS = [
 function Create({ lang, onCreated }) {
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const [provider, setProvider] = useState('anthropic');
   const [model, setModel] = useState('claude-sonnet-4-5');
   const [temp, setTemp] = useState(0.9);
   const [length, setLength] = useState('medium');
@@ -32,8 +45,16 @@ function Create({ lang, onCreated }) {
   const [error, setError] = useState(null);
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
-    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', h1: 'Escribir con la máquina.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:' }
+    : { eyebrow: 'CREATE · NEW STORY', h1: 'Write with the machine.', subtitle: 'The AI generates the full story. You set the tone.', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', loading: 'GENERATING · ', err: '◼ ERROR:' };
+
+  const modelsForProvider = MODELS_BY_PROVIDER[provider] || MODELS_BY_PROVIDER.anthropic;
+
+  const selectProvider = (p) => {
+    if (p === provider) return;
+    setProvider(p);
+    setModel(MODELS_BY_PROVIDER[p][0].id);
+  };
 
   const addTag = (v) => {
     const clean = v.trim().toUpperCase();
@@ -60,7 +81,7 @@ function Create({ lang, onCreated }) {
       const r = await fetch('/api/stories/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags, model, temp, prompt, length }),
+        body: JSON.stringify({ tags, provider, model, temp, prompt, length }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
@@ -125,11 +146,26 @@ function Create({ lang, onCreated }) {
           </div>
         </div>
 
+        <div style={styles.field}>
+          <label style={styles.label}>{t.providerLabel}</label>
+          <div style={styles.segBox}>
+            {PROVIDERS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => selectProvider(p.id)}
+                style={{ ...styles.segBtn, ...(provider === p.id ? styles.segBtnOn : {}) }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={styles.row}>
           <div style={{ ...styles.field, flex: 1 }}>
             <label style={styles.label}>{t.modelLabel}</label>
             <select style={styles.select} value={model} onChange={(e) => setModel(e.target.value)}>
-              {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              {modelsForProvider.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </div>
           <div style={{ ...styles.field, flex: 1 }}>

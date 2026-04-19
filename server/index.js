@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateStory } from './generate.js';
+import { generateStoryGemini } from './generateGemini.js';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -51,13 +52,28 @@ app.get('/api/stories/:slug', async (req, res) => {
 
 app.post('/api/stories/generate', async (req, res) => {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const {
+      tags = [],
+      provider = 'anthropic',
+      model,
+      temp = 0.9,
+      prompt = '',
+      length = 'medium',
+    } = req.body || {};
+
+    const isGemini = provider === 'google';
+    const resolvedModel = model || (isGemini ? 'gemini-2.5-flash' : 'claude-sonnet-4-5');
+
+    if (isGemini && !process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY no está seteada en .env' });
+    }
+    if (!isGemini && !process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada en .env' });
     }
 
-    const { tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '', length = 'medium' } = req.body || {};
-
-    const gen = await generateStory({ tags, model, temp, prompt, length });
+    const gen = isGemini
+      ? await generateStoryGemini({ tags, model: resolvedModel, temp, prompt, length })
+      : await generateStory({ tags, model: resolvedModel, temp, prompt, length });
 
     const last = await prisma.story.findFirst({ orderBy: { num: 'desc' } });
     const num = (last?.num ?? 0) + 1;
@@ -77,7 +93,7 @@ app.post('/api/stories/generate', async (req, res) => {
         excerptEn: gen.excerptEn,
         bodyEs: gen.bodyEs.join('\n\n'),
         bodyEn: gen.bodyEn.join('\n\n'),
-        model: model.toUpperCase(),
+        model: resolvedModel.toUpperCase(),
         temp,
         date: new Date(),
         minutes: gen.minutes,

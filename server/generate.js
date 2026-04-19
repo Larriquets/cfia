@@ -146,9 +146,11 @@ function validate(obj) {
 
 const TITLE_BANS = /\b(último|última|últimos|últimas|last)\b/i;
 
-function titleHasBan(obj) {
+export function titleHasBan(obj) {
   return TITLE_BANS.test(obj.titleEs || '') || TITLE_BANS.test(obj.titleEn || '');
 }
+
+export { SYSTEM_PROMPT, buildUserPrompt, extractJson, validate, slugify };
 
 async function callModel({ model, temp, userPrompt, extraSystem = '' }) {
   const resp = await client.messages.create({
