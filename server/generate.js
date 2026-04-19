@@ -55,6 +55,8 @@ Reglas de forma:
 - illus: siempre "generative" (la ilustración la componés vos en illusData).
 
 Reglas de originalidad (CRÍTICAS):
+- PROHIBIDO en los títulos (ES y EN): las palabras "último/última/últimos/últimas" y "last", y las fórmulas "El último X" / "La última X" / "The Last X". Son cliché de SF y las estás usando demasiado. Buscá otro ángulo: un objeto concreto, un gesto, un número, un lugar, un tiempo del día, una textura, un nombre propio inventado. Títulos tipo "Horizonte menor", "Tres relojes en la estación", "La casa de mi abuela en Ío", "Protocolo de despedida" — específicos, no superlativos.
+- Evitá también en títulos los superlativos fáciles y las aperturas adjetivales: "El primer/La primera", "El único", "El final de", "La muerte de", "El día que", "Cuando los". Preferí sustantivos concretos o frases elípticas.
 - PROHIBIDO usar nombres, personajes, escenarios, tecnologías o términos reconocibles de obras publicadas: HAL 9000, Skynet, Trantor, Ringworld, Arrakis, Foundation, Hyperion, Gethen, Ekumen, Culture, Tyrell, Weyland-Yutani, Dune, Fundación, Neuromancer, Babel-17, psicohistoria, cilindros de O'Neill, etc. Si se te cruza un nombre que suena familiar, cambialo.
 - PROHIBIDAS las aperturas clichés: "Era el año XXXX", "En un futuro no muy lejano", "El último humano", "La humanidad había colonizado", "Los robots soñaban con", "Tres leyes de la robótica", "Cuando desperté", "El sol se puso sobre la colonia". Empezá en una escena concreta, con un detalle específico.
 - Cada cuento debe tener UN giro conceptual específico — una idea que recontextualiza algo al final, no solo un setting exótico. El setting es contexto; la idea es el cuento. Sin giro ≠ cuento, es una postal.
@@ -142,15 +144,32 @@ function validate(obj) {
   return obj;
 }
 
-export async function generateStory({ tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '', length = 'medium' }) {
+const TITLE_BANS = /\b(último|última|últimos|últimas|last)\b/i;
+
+function titleHasBan(obj) {
+  return TITLE_BANS.test(obj.titleEs || '') || TITLE_BANS.test(obj.titleEn || '');
+}
+
+async function callModel({ model, temp, userPrompt, extraSystem = '' }) {
   const resp = await client.messages.create({
     model,
     max_tokens: 4096,
     temperature: temp,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt({ tags, prompt, length }) }],
+    system: SYSTEM_PROMPT + extraSystem,
+    messages: [{ role: 'user', content: userPrompt }],
   });
   const text = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-  const parsed = validate(extractJson(text));
+  return validate(extractJson(text));
+}
+
+export async function generateStory({ tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '', length = 'medium' }) {
+  const userPrompt = buildUserPrompt({ tags, prompt, length });
+  let parsed = await callModel({ model, temp, userPrompt });
+
+  if (titleHasBan(parsed)) {
+    const retryNote = `\n\nIMPORTANTE: En el intento anterior el título contenía "último/última/last" — palabras PROHIBIDAS en el título. Generá un título totalmente distinto, con otro ángulo (objeto concreto, gesto, número, lugar, nombre propio inventado). NO uses superlativos.`;
+    parsed = await callModel({ model, temp, userPrompt, extraSystem: retryNote });
+  }
+
   return { ...parsed, slugBase: slugify(parsed.titleEs) };
 }
