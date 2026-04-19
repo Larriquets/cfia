@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Story {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  titleEs   String
+  titleEn   String
+  excerptEs String
+  excerptEn String
+  bodyEs    String?
+  bodyEn    String?
+  model     String
+  temp      Float
+  date      DateTime
+  minutes   Int
+  num       Int      @unique
+  illus     String
+  tags      Tag[]    @relation("StoryTags")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  stories Story[] @relation("StoryTags")
+}
