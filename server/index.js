@@ -3,6 +3,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateStory } from './generate.js';
 import { generateStoryGemini } from './generateGemini.js';
+import { findOverusedWords } from './titleGuard.js';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -147,18 +148,26 @@ app.post('/api/stories/generate', async (req, res) => {
     const claudeModel = (!model || provider === 'both' || provider === 'google') ? 'claude-sonnet-4-5' : model;
     const geminiModel = (!model || provider === 'both' || provider === 'anthropic') ? 'gemini-2.5-flash' : model;
 
+    const recentRows = await prisma.story.findMany({
+      orderBy: { date: 'desc' },
+      take: 30,
+      select: { titleEs: true, titleEn: true },
+    });
+    const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
+    const overusedWords = findOverusedWords(recentTitles, 2);
+
     const tasks = [];
     if (wantClaude) {
       tasks.push({
         provider: 'claude',
-        promise: generateStory({ tags, model: claudeModel, temp, prompt, length })
+        promise: generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords })
           .then((gen) => ({ gen, modelLabel: claudeModel })),
       });
     }
     if (wantGemini) {
       tasks.push({
         provider: 'gemini',
-        promise: generateStoryGemini({ tags, model: geminiModel, temp, prompt, length })
+        promise: generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords })
           .then((gen) => ({ gen, modelLabel: geminiModel })),
       });
     }

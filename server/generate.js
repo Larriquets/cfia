@@ -144,13 +144,14 @@ function validate(obj) {
   return obj;
 }
 
-const TITLE_BANS = /\b(último|última|últimos|últimas|last)\b/i;
-
-export function titleHasBan(obj) {
-  return TITLE_BANS.test(obj.titleEs || '') || TITLE_BANS.test(obj.titleEn || '');
-}
-
 export { SYSTEM_PROMPT, buildUserPrompt, extractJson, validate, slugify };
+
+import {
+  titleHasBannedWord,
+  titleRepeatsOverused,
+  buildTitleGuardNote,
+  buildRetryNote,
+} from './titleGuard.js';
 
 async function callModel({ model, temp, userPrompt, extraSystem = '' }) {
   const resp = await client.messages.create({
@@ -164,13 +165,25 @@ async function callModel({ model, temp, userPrompt, extraSystem = '' }) {
   return validate(extractJson(text));
 }
 
-export async function generateStory({ tags = [], model = 'claude-sonnet-4-5', temp = 0.9, prompt = '', length = 'medium' }) {
+export async function generateStory({
+  tags = [],
+  model = 'claude-sonnet-4-5',
+  temp = 0.9,
+  prompt = '',
+  length = 'medium',
+  recentTitles = [],
+  overusedWords = [],
+}) {
   const userPrompt = buildUserPrompt({ tags, prompt, length });
-  let parsed = await callModel({ model, temp, userPrompt });
+  const guardNote = buildTitleGuardNote({ recentTitles, overused: overusedWords });
+  let parsed = await callModel({ model, temp, userPrompt, extraSystem: guardNote });
 
-  if (titleHasBan(parsed)) {
-    const retryNote = `\n\nIMPORTANTE: En el intento anterior el título contenía "último/última/last" — palabras PROHIBIDAS en el título. Generá un título totalmente distinto, con otro ángulo (objeto concreto, gesto, número, lugar, nombre propio inventado). NO uses superlativos.`;
-    parsed = await callModel({ model, temp, userPrompt, extraSystem: retryNote });
+  const banned = titleHasBannedWord(parsed) ? 'último/last' : null;
+  const repeated = !banned ? titleRepeatsOverused(parsed, overusedWords) : null;
+
+  if (banned || repeated) {
+    const retryNote = buildRetryNote({ bannedWord: banned, repeatedWord: repeated });
+    parsed = await callModel({ model, temp, userPrompt, extraSystem: guardNote + retryNote });
   }
 
   return { ...parsed, slugBase: slugify(parsed.titleEs) };

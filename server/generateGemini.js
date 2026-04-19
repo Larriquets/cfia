@@ -5,8 +5,13 @@ import {
   extractJson,
   validate,
   slugify,
-  titleHasBan,
 } from './generate.js';
+import {
+  titleHasBannedWord,
+  titleRepeatsOverused,
+  buildTitleGuardNote,
+  buildRetryNote,
+} from './titleGuard.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -47,14 +52,19 @@ export async function generateStoryGemini({
   temp = 0.9,
   prompt = '',
   length = 'medium',
+  recentTitles = [],
+  overusedWords = [],
 }) {
   const userPrompt = buildUserPrompt({ tags, prompt, length });
-  let parsed = await callModel({ model, temp, userPrompt });
+  const guardNote = buildTitleGuardNote({ recentTitles, overused: overusedWords });
+  let parsed = await callModel({ model, temp, userPrompt, extraSystem: guardNote });
 
-  if (titleHasBan(parsed)) {
-    const retryNote =
-      '\n\nIMPORTANTE: En el intento anterior el título contenía "último/última/last" — palabras PROHIBIDAS en el título. Generá un título totalmente distinto, con otro ángulo (objeto concreto, gesto, número, lugar, nombre propio inventado). NO uses superlativos.';
-    parsed = await callModel({ model, temp, userPrompt, extraSystem: retryNote });
+  const banned = titleHasBannedWord(parsed) ? 'último/last' : null;
+  const repeated = !banned ? titleRepeatsOverused(parsed, overusedWords) : null;
+
+  if (banned || repeated) {
+    const retryNote = buildRetryNote({ bannedWord: banned, repeatedWord: repeated });
+    parsed = await callModel({ model, temp, userPrompt, extraSystem: guardNote + retryNote });
   }
 
   return { ...parsed, slugBase: slugify(parsed.titleEs) };
