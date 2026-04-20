@@ -11,6 +11,15 @@ export async function loadDefaultContext() {
   return { author, universe };
 }
 
+export async function loadParentContext(parent) {
+  if (!parent?.universeId) return { author: parent?.author ?? null, universe: null };
+  const universe = await prisma.universe.findUnique({
+    where: { id: parent.universeId },
+    include: { memory: true },
+  });
+  return { author: parent.author ?? null, universe };
+}
+
 export function buildContextBlock({ author, universe, lang = 'es' }) {
   if (!author || !universe) return '';
 

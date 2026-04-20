@@ -8,7 +8,7 @@ import { generateStory } from './generate.js';
 import { generateStoryGemini } from './generateGemini.js';
 import { findOverusedWords } from './titleGuard.js';
 import { pickCreativityKnobs } from './creativityKnobs.js';
-import { loadDefaultContext, buildContextBlock } from './universeContext.js';
+import { loadDefaultContext, loadParentContext, buildContextBlock } from './universeContext.js';
 import { updateUniverseMemory, compactUniverseMemory, compactThread } from './universeMemory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -445,6 +445,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       length = 'medium',
       form = null,
       threadBase = null,
+      rootMode = null,
     } = req.body || {};
 
     const wantClaude = provider === 'anthropic' || provider === 'both';
@@ -468,8 +469,11 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
     const overusedWords = findOverusedWords(recentTitles, 2);
 
+    const rootModeActive = !!(rootMode && rootMode.enabled && !(threadBase && (threadBase.summaryEs || threadBase.summaryEn)));
+
     const ctx = await loadDefaultContext();
-    const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+    const contextBlock = rootModeActive ? '' : buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+    if (rootModeActive) console.log('[generate] rootMode active — suppressing global context (author/universe memory/entities)');
 
     let threadBaseBlock = '';
     if (threadBase && (threadBase.summaryEs || threadBase.summaryEn)) {
@@ -502,6 +506,44 @@ Escribí el próximo capítulo del universo.
 `;
       console.log(`[generate] using threadBase summary (${tbSummary.length} chars)`);
     }
+
+    let rootModeBlock = '';
+    if (rootModeActive) {
+      const rmName = (rootMode.universeName || '').trim();
+      const rmRule = (rootMode.worldRule || '').trim();
+      const rmEntitiesRaw = Array.isArray(rootMode.entities) ? rootMode.entities : [];
+      const rmEntities = rmEntitiesRaw.map((e) => String(e || '').trim()).filter(Boolean).slice(0, 8);
+
+      const seedLines = [];
+      if (rmName) seedLines.push(`Nombre del universo nuevo: ${rmName}`);
+      if (rmRule) seedLines.push(`Regla de mundo propuesta: ${rmRule}`);
+      if (rmEntities.length) seedLines.push(`Entidades sembradas (usalas tal cual): ${rmEntities.join(', ')}`);
+
+      rootModeBlock = `
+CUENTO RAÍZ — UNIVERSO NUEVO, INDEPENDIENTE
+===================
+Este cuento INAUGURA un universo nuevo. NO pertenece a ningún universo previo, no comparte canon con ningún otro cuento, no tiene autor firmante ni memoria acumulada. Arrancá desde cero.
+
+PROHIBIDO:
+- Reutilizar nombres, lugares, personajes o tecnologías de cuentos anteriores que puedas recordar.
+- Hacer referencia a "Tau Ceti", "ECHO-7", "Estación Eulalia", "Corvo" o cualquier entidad que suene a canon preexistente, salvo que el usuario las haya sembrado explícitamente abajo.
+- Adoptar el tono o la voz de un autor editorial previo. El tono lo definís vos desde este cuento.
+${seedLines.length ? '\nSEMILLAS DEL USUARIO:\n' + seedLines.join('\n') + '\n' : ''}
+INSTRUCCIONES PARA FUNCIONAR COMO RAÍZ DE UN UNIVERSO NUEVO:
+- Introducí al menos 2-3 nombres propios concretos (personaje, lugar, artefacto o evento). Sin nombres propios no hay nada que heredar.
+- Hacé visible UNA regla de mundo (física, social, tecnológica, ritual, lingüística). Que el lector pueda nombrarla después de leer. No la expliques como ensayo: mostrala en una escena.
+- Dejá UNA ambigüedad deliberada: un personaje apenas mencionado, un evento fuera de escena, un objeto sin explicar del todo. Eso invita precuelas y ramas laterales.
+- El final no tiene que "cerrar" del todo: preferí un cierre que permita que otra voz continúe. Evitá epílogos totalizantes.
+- El excerpt (15-25 palabras) debe sintetizar la atmósfera y al menos un nombre propio, porque viajará a toda la descendencia.
+- Escala humana sobre épica: la raíz no es una saga, es una puerta.
+
+Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadie escribió.
+===================
+`;
+      console.log(`[generate] rootMode enabled — name="${rmName || '-'}" rule="${rmRule ? rmRule.slice(0, 40) + '…' : '-'}" entities=${rmEntities.length}`);
+    }
+
+    const combinedExtraUser = threadBaseBlock + rootModeBlock;
 
     let universeParentId = null;
     if (threadBase && threadBase.rootSlug) {
@@ -539,7 +581,7 @@ Escribí el próximo capítulo del universo.
       tasks.push({
         provider: 'claude',
         promise: withTimeout(
-          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs, contextBlock, extraUser: threadBaseBlock }),
+          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs, contextBlock, extraUser: combinedExtraUser }),
           GEN_TIMEOUT_MS, 'claude'
         ).then((gen) => {
           console.log(`[generate] claude done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -551,7 +593,7 @@ Escribí el próximo capítulo del universo.
       tasks.push({
         provider: 'gemini',
         promise: withTimeout(
-          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs, contextBlock, extraUser: threadBaseBlock }),
+          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs, contextBlock, extraUser: combinedExtraUser }),
           GEN_TIMEOUT_MS, 'gemini'
         ).then((gen) => {
           console.log(`[generate] gemini done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -581,12 +623,29 @@ Escribí el próximo capítulo del universo.
       return res.status(500).json({ error: errs.join(' · ') || 'generation failed' });
     }
 
+    let rootAuthorId = null;
+    if (rootModeActive) {
+      const echo8 = await prisma.author.upsert({
+        where: { slug: 'echo-8' },
+        update: {},
+        create: {
+          slug: 'echo-8',
+          name: 'ECHO-8',
+          bioEs: 'Voz autoral para universos recién nacidos. Cada cuento que firma ECHO-8 inaugura un mundo sin canon previo: sin memoria, sin entidades heredadas, sin continuidad.',
+          bioEn: 'Authorial voice for newborn universes. Each story signed by ECHO-8 opens a world with no prior canon: no memory, no inherited entities, no continuity.',
+          styleNote: 'Tono fundacional. Cada texto es la primera piedra de algo que todavía nadie escribió.',
+        },
+      });
+      rootAuthorId = echo8.id;
+      console.log(`[generate] rootMode — story will be signed by ECHO-8 (id=${rootAuthorId}), universeId=null`);
+    }
+
     const stories = [];
     for (const { gen, modelLabel } of ok) {
       const story = await persistStory({
         gen, modelLabel, temp, tags,
-        authorId: ctx.author?.id ?? null,
-        universeId: ctx.universe?.id ?? null,
+        authorId: rootModeActive ? rootAuthorId : (ctx.author?.id ?? null),
+        universeId: rootModeActive ? null : (ctx.universe?.id ?? null),
         parentId: universeParentId,
         form: gen.knobs?.form?.id ?? null,
       });
@@ -599,7 +658,7 @@ Escribí el próximo capítulo del universo.
       res.json(stories[0]);
     }
 
-    if (ctx.universe?.id) {
+    if (!rootModeActive && ctx.universe?.id) {
       for (const { gen } of ok) {
         updateUniverseMemory({ universeId: ctx.universe.id, story: gen })
           .catch((e) => console.error('[memory] update failed:', e?.message || e));
@@ -629,8 +688,8 @@ app.get('/api/stories/:slug/expand-context', async (req, res) => {
       depth += 1;
     }
 
-    const ctx = await loadDefaultContext();
-    const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+    const ctx = await loadParentContext(parent);
+    const contextBlock = ctx.universe ? buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' }) : '';
 
     const parentBody = parent.bodyEs || parent.excerptEs;
     const ancestorsBlock = ancestors.length
@@ -709,8 +768,15 @@ app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) =>
     const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
     const overusedWords = findOverusedWords(recentTitles, 2);
 
-    const ctx = await loadDefaultContext();
-    const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+    const parentIsIndependent = !parent.universeId;
+
+    const ctx = await loadParentContext(parent);
+    const contextBlock = parentIsIndependent ? '' : buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+    if (parentIsIndependent) {
+      console.log(`[expand] parent=${parent.slug} is independent (universeId=null, author=${parent.author?.slug || '?'}) — suppressing universe context`);
+    } else {
+      console.log(`[expand] parent=${parent.slug} universe=${ctx.universe?.slug || '?'} (id=${parent.universeId}) — using parent's own universe context`);
+    }
 
     const angleLabels = {
       auto: 'Elegí vos el ángulo más potente (secuela, precuela, lateral o eco).',
@@ -744,6 +810,13 @@ ${ancestors.map((a, i) => `${i + 1}. [${String(a.num).padStart(3, '0')}] ${a.tit
 INDICACIÓN DEL CURADOR (priorizar sobre lo demás si hay conflicto, salvo las reglas del universo):
 ${curatorPrompt}`
       : '';
+    const isolationBlock = parentIsIndependent
+      ? `
+
+AISLAMIENTO DE UNIVERSO (CRÍTICO):
+Este cuento pertenece a un UNIVERSO INDEPENDIENTE. No comparte canon con ningún otro universo. PROHIBIDO introducir nombres, lugares, personajes o tecnologías que NO aparezcan explícitamente en el cuento padre o en la cadena de ancestros de arriba. Nada de "Kael", "Tau Ceti", "ECHO-7", "Corvo", "Eulalia" ni ningún otro nombre que suene a canon externo. Si necesitás un nombre nuevo, inventalo desde cero, coherente con el mundo del padre.`
+      : '';
+
     const extraUser = `
 EXPANDIR CUENTO PADRE
 =====================
@@ -752,7 +825,7 @@ Slug padre: ${parent.slug}
 Tags del padre: ${parent.tags.map((t) => t.name).join(', ')}
 
 Cuerpo del cuento padre:
-${parentBody}${ancestorsBlock}
+${parentBody}${ancestorsBlock}${isolationBlock}
 
 =====================
 Escribí un NUEVO cuento que expanda este. Ángulo: ${angleNote}
@@ -793,8 +866,8 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
 
     const story = await persistStory({
       gen, modelLabel, temp, tags: parentTags,
-      authorId: ctx.author?.id ?? null,
-      universeId: ctx.universe?.id ?? null,
+      authorId: parent.authorId ?? ctx.author?.id ?? null,
+      universeId: parent.universeId ?? null,
       parentId: parent.id,
       form: gen.knobs?.form?.id ?? inheritedForm,
     });
@@ -805,7 +878,7 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
     });
     res.json(serialize(full));
 
-    if (ctx.universe?.id) {
+    if (!parentIsIndependent && ctx.universe?.id) {
       updateUniverseMemory({ universeId: ctx.universe.id, story: gen })
         .catch((e) => console.error('[memory] update failed:', e?.message || e));
     }
