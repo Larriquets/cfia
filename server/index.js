@@ -483,17 +483,31 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
         if (Array.isArray(tbEntities.eventos) && tbEntities.eventos.length) entLines.push(`Eventos: ${tbEntities.eventos.join(', ')}`);
       }
       threadBaseBlock = `
-BASE DE HILO PREVIO
+BASE DE UNIVERSO
 ===================
-El siguiente cuento debe nacer como RAMA nueva (no como continuación directa) de un hilo previo condensado:
+El siguiente cuento pertenece al universo condensado abajo. Nace como RAMA NUEVA del árbol — no continuación directa de ningún cuento, sino derivación del mundo entero:
 
 ${tbSummary}
-${entLines.length ? '\nENTIDADES DEL HILO:\n' + entLines.join('\n') : ''}
+${entLines.length ? '\nENTIDADES DEL UNIVERSO:\n' + entLines.join('\n') : ''}
 
-Usalo como sustrato tonal y mundo-referencia. Podés traer personajes, lugares o ecos del hilo, pero el cuento nuevo tiene su propia entrada y su propio cierre — no es capítulo siguiente, es una derivación.
+El cuento nuevo hereda tono, personajes, lugares y reglas del universo, pero tiene su propia entrada y su propio cierre. Podés traer ecos o figuras del universo, pero no seas capítulo siguiente — sé otra cara del mismo mundo.
 ===================
 `;
       console.log(`[generate] using threadBase summary (${tbSummary.length} chars)`);
+    }
+
+    let universeParentId = null;
+    if (threadBase && threadBase.rootSlug) {
+      const rootStory = await prisma.story.findUnique({
+        where: { slug: threadBase.rootSlug },
+        select: { id: true, slug: true },
+      });
+      if (rootStory) {
+        universeParentId = rootStory.id;
+        console.log(`[generate] adopting new story under universe root "${rootStory.slug}" (id=${rootStory.id})`);
+      } else {
+        console.warn(`[generate] threadBase.rootSlug "${threadBase.rootSlug}" not found — story will be created as root`);
+      }
     }
 
     const formId = form && form !== 'random' ? form : null;
@@ -566,6 +580,7 @@ Usalo como sustrato tonal y mundo-referencia. Podés traer personajes, lugares o
         gen, modelLabel, temp, tags,
         authorId: ctx.author?.id ?? null,
         universeId: ctx.universe?.id ?? null,
+        parentId: universeParentId,
         form: gen.knobs?.form?.id ?? null,
       });
       stories.push(serialize(story));

@@ -164,7 +164,7 @@ function Create({ lang, onCreated, stories = [] }) {
         ? { provider: provider === 'both' ? 'anthropic' : provider, model: provider === 'both' ? undefined : model, temp, angle, form: expandForm, prompt, length }
         : {
             tags, provider, model, temp, prompt, length, form,
-            ...(universeSummary ? { threadBase: { summaryEs: universeSummary.summaryEs, summaryEn: universeSummary.summaryEn, entities: universeSummary.entities } } : {}),
+            ...(universeSummary ? { threadBase: { summaryEs: universeSummary.summaryEs, summaryEn: universeSummary.summaryEn, entities: universeSummary.entities, rootSlug: universeSummary.rootSlug } } : {}),
           };
       const r = await fetch(url, {
         method: 'POST',

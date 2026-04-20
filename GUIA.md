@@ -92,8 +92,9 @@ En **CREAR · NUEVO** hay una sección **▸ USAR UN UNIVERSO COMO BASE**:
 1. Elegís un universo del menú (los mismos que aparecen en la página UNIVERSOS — cada entrada muestra el título de la raíz y cuántos cuentos componen el árbol).
 2. Ves el árbol completo en ASCII (`├─` `└─`), con todas las ramas.
 3. Hacés clic en **◼ COMPACTAR ESTE UNIVERSO** — condensa todo el árbol (raíz + ramas laterales + hojas) en un resumen único + entidades del universo: personajes, lugares, objetos, eventos recurrentes.
-4. Ese resumen queda cargado como "base de universo". El próximo cuento que generes va a nacer como **rama** de ese universo — no como continuación directa, sino como una derivación que hereda tono, personajes y mundo pero arranca fresca.
-5. Podés limpiar el universo base cuando quieras.
+4. Ese resumen queda cargado como "base de universo". El próximo cuento que generes va a nacer como **rama** de ese universo — no continuación directa de un cuento específico, sino derivación del mundo entero.
+5. **El cuento nuevo se adopta bajo la raíz del universo** — aparece como hijo directo de la raíz en el árbol de UNIVERSOS. Así el universo sigue creciendo con cada rama que derivás de él.
+6. Podés limpiar el universo base cuando quieras.
 
 Útil cuando un universo tiene 6, 8, 12 cuentos y querés abrir una rama nueva sin que la IA tenga que leerse 60.000 caracteres de contexto.
 
