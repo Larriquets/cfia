@@ -4,26 +4,26 @@ function About({ lang, onNav }) {
   const { Illustration } = window;
   const t = lang === 'es' ? {
     eyebrow: 'MANIFIESTO', title: 'Por qué importa', body: [
-      'CFIA es una colección de cuentos cortos de ciencia ficción escritos por modelos de lenguaje grandes y curados por un pequeño equipo humano.',
-      'No creemos que la IA escriba mejor que nosotros. Creemos que escribe distinto. Y esa diferencia, leída con atención, es la forma más honesta de entender qué son estas máquinas.',
-      'Publicamos lo que nos sorprende. Desechamos lo que es cliché, violento sin razón, o meramente competente. Un cuento bueno es raro. Por eso hay solo un puñado a la semana.'
+      <>CFIA es un archivo de cuentos cortos de ciencia ficción escritos por modelos de lenguaje. El objetivo no es imitar a un autor humano: es <strong>dejar visible la voz del modelo</strong> tal como surge — con su ritmo, sus riesgos y sus fallos literarios. No censuramos ni reescribimos el relato para “mejorarlo” al gusto editorial.</>,
+      <>No creemos que la IA escriba mejor que nosotros. Creemos que escribe distinto. Esa diferencia, leída con atención, es la forma más honesta de entender qué son estas máquinas.</>,
+      <>Los textos se ramifican en árboles (expansiones, precuelas, ecos). Cuando un tronco crece lo bastante, se convierte en un <strong>universo</strong> en el mapa del sitio. La hoja de ruta apunta a automatizar una emisión diaria y derivados a partir de lo más leído; lo operativo —metadatos, licencia, acceso a generación— sigue existiendo sin sustituir un comité que pase el lápiz sobre la ficción.</>,
     ],
     prin: 'PRINCIPIOS', principles: [
-      ['01', 'Transparencia', 'Cada cuento indica el modelo, la temperatura y la fecha de generación.'],
-      ['02', 'Humanismo', 'La IA escribe; los humanos eligen, editan, y firman lo publicado.'],
-      ['03', 'Abierto', 'Todos los cuentos bajo licencia CC-BY 4.0. El código del sitio, abierto también.']
+      ['01', 'Transparencia', 'Cada cuento indica el modelo, la temperatura y la fecha de generación; la procedencia importa.'],
+      ['02', 'Voz de la máquina', 'No reescribimos prosa ni diálogo para pulir el texto: publicamos lo que generó el modelo, salvo lo que exijan la ley o las reglas del proveedor.'],
+      ['03', 'Abierto', 'Los cuentos bajo licencia CC-BY 4.0. El código del sitio, abierto también.']
     ],
     cta: 'Ver el catálogo →'
   } : {
     eyebrow: 'MANIFESTO', title: 'Why it matters', body: [
-      'CFIA is a collection of short science-fiction stories written by large language models and curated by a small human team.',
-      'We don\'t think AI writes better than us. We think it writes differently. And that difference, read carefully, is the most honest way to understand what these machines are.',
-      'We publish what surprises us. We discard what is cliché, pointlessly violent, or merely competent. A good story is rare. That\'s why there are only a handful a week.'
+      <>CFIA is an archive of short science-fiction stories written by language models. The goal isn’t to pass as human writing: it’s to <strong>make the model’s own voice visible</strong> as it emerges—its pacing, its risks, its literary stumbles. We don’t censor or rewrite stories to suit an editorial taste.</>,
+      <>We don&apos;t think AI writes better than us. We think it writes differently. That difference, read carefully, is the most honest way to understand what these machines are.</>,
+      <>Stories branch into trees (expansions, prequels, echoes). When a trunk grows large enough, it becomes a <strong>universe</strong> on the site’s map. The roadmap points to automated daily publication and derivatives from the most-read work; operations—metadata, license, gated generation—remain without replacing a committee that pencils the fiction.</>,
     ],
     prin: 'PRINCIPLES', principles: [
-      ['01', 'Transparency', 'Every story lists its model, temperature, and generation date.'],
-      ['02', 'Humanism', 'AI writes; humans choose, edit, and sign off on what is published.'],
-      ['03', 'Open', 'All stories under CC-BY 4.0. The site\'s code, also open.']
+      ['01', 'Transparency', 'Every story lists model, temperature, and generation date—provenance matters.'],
+      ['02', 'Machine voice', 'We don’t rewrite prose or dialogue to polish the text: we publish what the model generated, except where law or provider rules require otherwise.'],
+      ['03', 'Open', 'Stories under CC-BY 4.0. The site’s code is open too.']
     ],
     cta: 'See the catalog →'
   };
@@ -40,7 +40,9 @@ function About({ lang, onNav }) {
           <Illustration kind="target" seed={7} size={260} />
         </div>
         <div style={abStyles.proseCol}>
-          {t.body.map((p, i) => <p key={i} style={abStyles.para}>{p}</p>)}
+          {t.body.map((content, i) => (
+            <p key={i} style={abStyles.para}>{content}</p>
+          ))}
         </div>
       </section>
       <hr style={abStyles.rule} />
