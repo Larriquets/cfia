@@ -62,9 +62,13 @@ function serialize(story) {
     illusData: story.illusData ? JSON.parse(story.illusData) : null,
     likes: story.likes ?? 0,
     tags: story.tags.map((t) => t.name),
+    form: story.form || null,
     author: story.author ? { slug: story.author.slug, name: story.author.name } : null,
     universe: story.universe ? { slug: story.universe.slug, name: { es: story.universe.nameEs, en: story.universe.nameEn } } : null,
     parentSlug: story.parent ? story.parent.slug : null,
+    parent: story.parent
+      ? { slug: story.parent.slug, title: { es: story.parent.titleEs, en: story.parent.titleEn }, num: story.parent.num }
+      : null,
     children: Array.isArray(story.children)
       ? story.children.map((c) => ({ slug: c.slug, title: { es: c.titleEs, en: c.titleEn }, num: c.num }))
       : [],
@@ -117,6 +121,78 @@ app.get('/api/stories/:slug', async (req, res) => {
   });
   if (!story) return res.status(404).json({ error: 'not found' });
   res.json(serialize(story));
+});
+
+app.get('/api/stories/:slug/related', async (req, res) => {
+  const LIMIT = 4;
+  try {
+    const story = await prisma.story.findUnique({
+      where: { slug: req.params.slug },
+      include: { tags: true, parent: true, children: true },
+    });
+    if (!story) return res.status(404).json({ error: 'not found' });
+
+    const picked = new Map();
+    const tagNames = story.tags.map((t) => t.name);
+
+    const add = (s, reason) => {
+      if (!s || s.slug === story.slug || picked.has(s.slug)) return;
+      picked.set(s.slug, { slug: s.slug, title: { es: s.titleEs, en: s.titleEn }, num: s.num, reason });
+    };
+
+    if (story.parent) add(story.parent, 'parent');
+    for (const c of story.children || []) add(c, 'child');
+
+    if (story.parentId && picked.size < LIMIT) {
+      const siblings = await prisma.story.findMany({
+        where: { parentId: story.parentId, id: { not: story.id } },
+        select: { slug: true, titleEs: true, titleEn: true, num: true },
+        orderBy: { date: 'desc' },
+      });
+      for (const s of siblings) {
+        if (picked.size >= LIMIT) break;
+        add(s, 'sibling');
+      }
+    }
+
+    if (picked.size < LIMIT && tagNames.length) {
+      const sameTag = await prisma.story.findMany({
+        where: {
+          id: { not: story.id },
+          universeId: story.universeId ?? undefined,
+          tags: { some: { name: { in: tagNames } } },
+        },
+        select: { slug: true, titleEs: true, titleEn: true, num: true },
+        orderBy: { date: 'desc' },
+        take: 12,
+      });
+      for (const s of sameTag) {
+        if (picked.size >= LIMIT) break;
+        add(s, 'tag');
+      }
+    }
+
+    if (picked.size < LIMIT) {
+      const recent = await prisma.story.findMany({
+        where: {
+          id: { not: story.id },
+          universeId: story.universeId ?? undefined,
+        },
+        select: { slug: true, titleEs: true, titleEn: true, num: true },
+        orderBy: { date: 'desc' },
+        take: 12,
+      });
+      for (const s of recent) {
+        if (picked.size >= LIMIT) break;
+        add(s, 'recent');
+      }
+    }
+
+    res.json({ items: Array.from(picked.values()) });
+  } catch (e) {
+    console.error('related error:', e);
+    res.status(500).json({ error: e.message || 'related failed' });
+  }
 });
 
 app.get('/api/universe', async (_req, res) => {
@@ -241,7 +317,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
         new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timeout after ${ms / 1000}s`)), ms)),
       ]);
 
-    const GEN_TIMEOUT_MS = 80000;
+    const GEN_TIMEOUT_MS = length === 'long' ? 180000 : length === 'short' ? 60000 : 100000;
     const tasks = [];
     if (wantClaude) {
       tasks.push({
@@ -319,6 +395,76 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
   }
 });
 
+app.get('/api/stories/:slug/expand-context', async (req, res) => {
+  try {
+    const parent = await prisma.story.findUnique({
+      where: { slug: req.params.slug },
+      include: { tags: true, author: true, universe: true },
+    });
+    if (!parent) return res.status(404).json({ error: 'not found' });
+
+    const ancestors = [];
+    let cursor = parent.parentId ? await prisma.story.findUnique({ where: { id: parent.parentId }, select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, parentId: true } }) : null;
+    let depth = 0;
+    while (cursor && depth < 5) {
+      ancestors.push(cursor);
+      cursor = cursor.parentId ? await prisma.story.findUnique({ where: { id: cursor.parentId }, select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, parentId: true } }) : null;
+      depth += 1;
+    }
+
+    const ctx = await loadDefaultContext();
+    const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
+
+    const parentBody = parent.bodyEs || parent.excerptEs;
+    const ancestorsBlock = ancestors.length
+      ? ancestors.map((a, i) => `${i + 1}. [${String(a.num).padStart(3, '0')}] ${a.titleEs} — ${a.excerptEs}`).join('\n')
+      : '';
+
+    res.json({
+      parent: {
+        slug: parent.slug,
+        num: parent.num,
+        titleEs: parent.titleEs,
+        titleEn: parent.titleEn,
+        tags: parent.tags.map((t) => t.name),
+        form: parent.form,
+        bodyPreview: parentBody,
+        bodyChars: parentBody.length,
+      },
+      ancestors: ancestors.map((a) => ({
+        slug: a.slug,
+        num: a.num,
+        titleEs: a.titleEs,
+        titleEn: a.titleEn,
+        excerptEs: a.excerptEs,
+      })),
+      author: ctx.author ? { name: ctx.author.name, styleNote: ctx.author.styleNote } : null,
+      universe: ctx.universe ? {
+        name: { es: ctx.universe.nameEs, en: ctx.universe.nameEn },
+        rulesEs: ctx.universe.rulesEs,
+        memory: ctx.universe.memory ? {
+          summaryEs: ctx.universe.memory.summaryEs,
+          entities: (() => { try { return JSON.parse(ctx.universe.memory.entities); } catch { return null; } })(),
+          updatedAt: ctx.universe.memory.updatedAt,
+        } : null,
+      } : null,
+      blocks: {
+        contextBlock,
+        ancestorsBlock,
+      },
+      stats: {
+        contextBlockChars: contextBlock.length,
+        ancestorsCount: ancestors.length,
+        parentBodyChars: parentBody.length,
+        totalChars: contextBlock.length + parentBody.length + ancestorsBlock.length,
+      },
+    });
+  } catch (e) {
+    console.error('expand-context error:', e);
+    res.status(500).json({ error: e.message || 'context failed' });
+  }
+});
+
 app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Keep-Alive', 'timeout=120');
@@ -329,7 +475,8 @@ app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) =>
     });
     if (!parent) return res.status(404).json({ error: 'not found' });
 
-    const { provider = 'anthropic', model, temp = 0.9, angle = 'auto', length = 'medium' } = req.body || {};
+    const { provider = 'anthropic', model, temp = 0.9, angle = 'auto', length = 'medium', form = null, prompt = '' } = req.body || {};
+    const curatorPrompt = typeof prompt === 'string' ? prompt.trim() : '';
     const wantClaude = provider === 'anthropic';
     const wantGemini = provider === 'google';
     if (wantClaude && !process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada' });
@@ -358,6 +505,28 @@ app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) =>
     const angleNote = angleLabels[angle] || angleLabels.auto;
 
     const parentBody = parent.bodyEs || parent.excerptEs;
+
+    const ancestors = [];
+    let cursor = parent.parentId ? await prisma.story.findUnique({ where: { id: parent.parentId }, select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, parentId: true } }) : null;
+    let depth = 0;
+    while (cursor && depth < 5) {
+      ancestors.push(cursor);
+      cursor = cursor.parentId ? await prisma.story.findUnique({ where: { id: cursor.parentId }, select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, parentId: true } }) : null;
+      depth += 1;
+    }
+    const ancestorsBlock = ancestors.length
+      ? `
+
+CADENA DE ANCESTROS (del más cercano al más lejano, NO son el padre directo — son contexto previo del hilo):
+${ancestors.map((a, i) => `${i + 1}. [${String(a.num).padStart(3, '0')}] ${a.titleEs} — ${a.excerptEs}`).join('\n')}`
+      : '';
+
+    const curatorBlock = curatorPrompt
+      ? `
+
+INDICACIÓN DEL CURADOR (priorizar sobre lo demás si hay conflicto, salvo las reglas del universo):
+${curatorPrompt}`
+      : '';
     const extraUser = `
 EXPANDIR CUENTO PADRE
 =====================
@@ -366,23 +535,26 @@ Slug padre: ${parent.slug}
 Tags del padre: ${parent.tags.map((t) => t.name).join(', ')}
 
 Cuerpo del cuento padre:
-${parentBody}
+${parentBody}${ancestorsBlock}
 
 =====================
 Escribí un NUEVO cuento que expanda este. Ángulo: ${angleNote}
-Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leído después del padre. No repitas la trama del padre; extendela.`;
+Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leído después del padre. No repitas la trama del padre ni de los ancestros; extendela. Respetá la continuidad del hilo.${curatorBlock}`;
 
     const parentTags = parent.tags.map((t) => t.name);
     const inheritedForm = parent.form || null;
-    const knobs = pickCreativityKnobs({ formId: inheritedForm });
-    console.log(`[expand] parent=${parent.slug} angle=${angle} provider=${provider} form=${knobs.form.id}${inheritedForm ? ' (inherited)' : ' (random — parent had no form)'}`);
+    const overrideForm = form && form !== 'inherit' && form !== 'random' ? form : null;
+    const effectiveFormId = overrideForm || inheritedForm;
+    const knobs = pickCreativityKnobs({ formId: effectiveFormId });
+    const formSource = overrideForm ? 'override' : (inheritedForm ? 'inherited' : 'random');
+    console.log(`[expand] parent=${parent.slug} ancestors=${ancestors.length} angle=${angle} provider=${provider} form=${knobs.form.id} (${formSource}) prompt=${curatorPrompt ? curatorPrompt.slice(0, 60) : '∅'}`);
 
     const withTimeout = (p, ms, label) =>
       Promise.race([
         p,
         new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timeout after ${ms / 1000}s`)), ms)),
       ]);
-    const GEN_TIMEOUT_MS = 80000;
+    const GEN_TIMEOUT_MS = length === 'long' ? 180000 : length === 'short' ? 60000 : 100000;
 
     let gen, modelLabel;
     if (wantGemini) {

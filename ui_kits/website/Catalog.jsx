@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const PAGE_SIZE = 24;
 
 function Catalog({ stories, lang, onOpen }) {
   const { Illustration, LikeButton } = window;
   const [activeTag, setActiveTag] = useState(null);
   const [view, setView] = useState('grid');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const allTags = [...new Set(stories.flatMap(s => s.tags))];
   const filtered = activeTag ? stories.filter(s => s.tags.includes(activeTag)) : stories;
+  const visible = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [activeTag]);
+
   const t = lang === 'es'
-    ? { eyebrow: 'CATÁLOGO', title: 'Todos los cuentos', count: 'CUENTOS', filter: 'FILTRAR POR TEMA', all: 'TODOS', view: 'VISTA', list: 'LISTA', grid: 'GRILLA' }
-    : { eyebrow: 'CATALOG', title: 'All stories', count: 'STORIES', filter: 'FILTER BY THEME', all: 'ALL', view: 'VIEW', list: 'LIST', grid: 'GRID' };
+    ? { eyebrow: 'CATÁLOGO', title: 'Todos los cuentos', count: 'CUENTOS', filter: 'FILTRAR POR TEMA', all: 'TODOS', view: 'VISTA', list: 'LISTA', grid: 'GRILLA', loadMore: 'CARGAR MÁS', showing: 'MOSTRANDO', of: 'DE' }
+    : { eyebrow: 'CATALOG', title: 'All stories', count: 'STORIES', filter: 'FILTER BY THEME', all: 'ALL', view: 'VIEW', list: 'LIST', grid: 'GRID', loadMore: 'LOAD MORE', showing: 'SHOWING', of: 'OF' };
   return (
     <div className="cfia-container" style={catStyles.root}>
       <section className="cfia-head-main" style={catStyles.head}>
@@ -48,7 +56,7 @@ function Catalog({ stories, lang, onOpen }) {
       </section>
       {view === 'list' ? (
         <section style={catStyles.list}>
-          {filtered.map(s => (
+          {visible.map(s => (
             <div key={s.slug} className="cfia-cat-row" style={catStyles.row} onClick={() => onOpen(s.slug)}>
               <div style={catStyles.num}>{String(s.num).padStart(3, '0')}</div>
               <div style={catStyles.mid}>
@@ -74,7 +82,7 @@ function Catalog({ stories, lang, onOpen }) {
         </section>
       ) : (
         <section className="cfia-grid-auto" style={catStyles.grid}>
-          {filtered.map(s => (
+          {visible.map(s => (
             <div key={s.slug} style={catStyles.tile} onClick={() => onOpen(s.slug)}>
               <div style={catStyles.tileImg}>
                 <Illustration kind={s.illus} seed={s.num} size={280} data={s.illusData} />
@@ -99,6 +107,23 @@ function Catalog({ stories, lang, onOpen }) {
           ))}
         </section>
       )}
+
+      {filtered.length > PAGE_SIZE ? (
+        <section style={catStyles.moreWrap}>
+          <div style={catStyles.moreCount}>
+            {t.showing} {visible.length} {t.of} {filtered.length}
+          </div>
+          {hasMore ? (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              style={catStyles.moreBtn}
+            >
+              ▸ {t.loadMore}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -136,6 +161,9 @@ const catStyles = {
   tileTags: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#b8b5ad' },
   tileFoot: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   rowRightBottom: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
+  moreWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '48px 0 96px' },
+  moreCount: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase' },
+  moreBtn: { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: '0.18em', background: '#e8b84a', color: '#0a0a0f', border: 'none', padding: '14px 28px', cursor: 'pointer' },
 };
 
 window.Catalog = Catalog;

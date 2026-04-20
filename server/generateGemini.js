@@ -44,7 +44,14 @@ async function callModel({ model, temp, userPrompt, extraSystem = '' }) {
     },
   });
   const text = extractText(resp);
-  return validate(extractJson(text));
+  try {
+    return validate(extractJson(text));
+  } catch (e) {
+    const finishReason = resp?.candidates?.[0]?.finishReason || 'unknown';
+    console.error(`[gemini] parse failed — finishReason=${finishReason} text_len=${text.length} error=${e.message}`);
+    console.error(`[gemini] tail: …${text.slice(-200)}`);
+    throw new Error(`${e.message} (finishReason=${finishReason}, len=${text.length})`);
+  }
 }
 
 export async function generateStoryGemini({

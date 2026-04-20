@@ -158,13 +158,19 @@ import { pickCreativityKnobs, buildCreativityNote } from './creativityKnobs.js';
 async function callModel({ model, temp, userPrompt, extraSystem = '' }) {
   const resp = await client.messages.create({
     model,
-    max_tokens: 4096,
+    max_tokens: 8192,
     temperature: temp,
     system: SYSTEM_PROMPT + extraSystem,
     messages: [{ role: 'user', content: userPrompt }],
   });
   const text = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-  return validate(extractJson(text));
+  try {
+    return validate(extractJson(text));
+  } catch (e) {
+    console.error(`[claude] parse failed — stop_reason=${resp.stop_reason} text_len=${text.length} error=${e.message}`);
+    console.error(`[claude] tail: …${text.slice(-200)}`);
+    throw new Error(`${e.message} (stop_reason=${resp.stop_reason}, len=${text.length})`);
+  }
 }
 
 export async function generateStory({

@@ -19,10 +19,32 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         voice: 'VOZ', speed: 'VELOCIDAD', unsupported: 'Tu navegador no soporta síntesis de voz',
         para: 'PÁRRAFO', playing: 'REPRODUCIENDO',
         thread: 'HILO', expandsFrom: 'CONTINÚA DE', expandsTo: 'EXPANDIDO EN',
+        relatedTitle: 'SEGUIR LEYENDO',
+        reason: { parent: 'CONTINÚA DE', child: 'EXPANDIDO EN', sibling: 'HERMANO', tag: 'TAGS AFINES', recent: 'RECIENTE' },
         expandTitle: 'EXPANDIR ESTE CUENTO',
         expandHint: 'Pedile a ECHO-7 que escriba otro cuento que continúe, preceda o eche luz sobre este.',
         angleLabel: 'ÁNGULO',
         angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' },
+        formLabel: 'FORMA NARRATIVA',
+        formHintExpand: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.',
+        inheritOpt: 'HEREDAR DEL PADRE',
+        parentFormTag: 'FORMA DEL PADRE',
+        parentFormUnknown: 'desconocida',
+        promptLabel: 'INDICACIÓN (OPCIONAL)',
+        promptPh: 'Guiá la expansión: qué personaje seguir, qué pregunta abrir, qué tono, qué imagen…',
+        lengthLabel: 'DURACIÓN',
+        lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' },
+        ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7',
+        ctxToggleHide: '▾ OCULTAR CONTEXTO',
+        ctxLoading: 'CARGANDO CONTEXTO · ',
+        ctxAncestors: 'CADENA DE ANCESTROS',
+        ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.',
+        ctxParent: 'CUERPO DEL PADRE (entra completo)',
+        ctxUniverse: 'MEMORIA DEL UNIVERSO',
+        ctxEntities: 'ENTIDADES RECURRENTES',
+        ctxAuthor: 'AUTOR',
+        ctxStats: 'TOTAL',
+        ctxChars: 'caracteres',
         expandBtn: '▸ EXPANDIR',
         expanding: 'GENERANDO · ',
         lockedHint: 'Acceso restringido. Entrá por CREAR.',
@@ -32,10 +54,32 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         voice: 'VOICE', speed: 'SPEED', unsupported: 'Your browser does not support speech synthesis',
         para: 'PARAGRAPH', playing: 'PLAYING',
         thread: 'THREAD', expandsFrom: 'CONTINUES FROM', expandsTo: 'EXPANDED IN',
+        relatedTitle: 'KEEP READING',
+        reason: { parent: 'CONTINUES FROM', child: 'EXPANDED IN', sibling: 'SIBLING', tag: 'RELATED TAGS', recent: 'RECENT' },
         expandTitle: 'EXPAND THIS STORY',
         expandHint: 'Ask ECHO-7 to write another story that continues, precedes or sheds light on this one.',
         angleLabel: 'ANGLE',
         angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' },
+        formLabel: 'NARRATIVE FORM',
+        formHintExpand: 'INHERIT reuses the parent form. Pick another to contrast.',
+        inheritOpt: 'INHERIT FROM PARENT',
+        parentFormTag: 'PARENT FORM',
+        parentFormUnknown: 'unknown',
+        promptLabel: 'PROMPT (OPTIONAL)',
+        promptPh: 'Guide the expansion: which character to follow, what question to open, what tone, what image…',
+        lengthLabel: 'LENGTH',
+        lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' },
+        ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7',
+        ctxToggleHide: '▾ HIDE CONTEXT',
+        ctxLoading: 'LOADING CONTEXT · ',
+        ctxAncestors: 'ANCESTOR CHAIN',
+        ctxAncestorsEmpty: 'This story has no ancestors — it is a root.',
+        ctxParent: 'PARENT BODY (sent in full)',
+        ctxUniverse: 'UNIVERSE MEMORY',
+        ctxEntities: 'RECURRING ENTITIES',
+        ctxAuthor: 'AUTHOR',
+        ctxStats: 'TOTAL',
+        ctxChars: 'characters',
         expandBtn: '▸ EXPAND',
         expanding: 'GENERATING · ',
         lockedHint: 'Restricted. Enter through CREATE.',
@@ -116,9 +160,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
           </div>
         </div>
 
-        {(story.parentSlug || (story.children && story.children.length)) ? (
-          <ThreadSection story={story} lang={lang} t={t} onOpen={onOpen} />
-        ) : null}
+        <RelatedStories story={story} lang={lang} t={t} onOpen={onOpen} />
 
         <ExpandPanel story={story} lang={lang} t={t} onCreated={onCreated} />
       </article>
@@ -126,32 +168,40 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
   );
 }
 
-function ThreadSection({ story, lang, t, onOpen }) {
+function RelatedStories({ story, lang, t, onOpen }) {
+  const [items, setItems] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    setItems(null);
+    fetch(`/api/stories/${story.slug}/related`)
+      .then((r) => r.ok ? r.json() : { items: [] })
+      .then((data) => { if (alive) setItems(data.items || []); })
+      .catch(() => { if (alive) setItems([]); });
+    return () => { alive = false; };
+  }, [story.slug]);
+
+  if (!items || !items.length) return null;
+
   return (
     <>
       <hr style={rdStyles.sepHair} />
-      <section style={threadStyles.wrap}>
-        <div style={threadStyles.label}>◼ {t.thread}</div>
-        {story.parentSlug ? (
-          <div style={threadStyles.row}>
-            <span style={threadStyles.rowLbl}>{t.expandsFrom}</span>
-            <a style={threadStyles.link} onClick={() => onOpen?.(story.parentSlug)}>
-              → {story.parentSlug}
-            </a>
-          </div>
-        ) : null}
-        {story.children && story.children.length ? (
-          <div style={threadStyles.row}>
-            <span style={threadStyles.rowLbl}>{t.expandsTo}</span>
-            <div style={threadStyles.childList}>
-              {story.children.map((c) => (
-                <a key={c.slug} style={threadStyles.link} onClick={() => onOpen?.(c.slug)}>
-                  → {c.title?.[lang] || c.title?.es || c.slug}
-                </a>
-              ))}
-            </div>
-          </div>
-        ) : null}
+      <section style={relatedStyles.wrap}>
+        <div style={relatedStyles.label}>◼ {t.relatedTitle}</div>
+        <ul style={relatedStyles.list}>
+          {items.map((it) => (
+            <li key={it.slug} style={relatedStyles.item}>
+              <a style={relatedStyles.link} onClick={() => onOpen?.(it.slug)}>
+                <span style={relatedStyles.badge}>{t.reason[it.reason] || it.reason}</span>
+                <span style={relatedStyles.num}>{String(it.num).padStart(3, '0')}</span>
+                <span style={relatedStyles.title}>
+                  {it.title?.[lang] || it.title?.es || it.slug}
+                </span>
+                <span style={relatedStyles.arrow}>→</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
     </>
   );
@@ -159,14 +209,36 @@ function ThreadSection({ story, lang, t, onOpen }) {
 
 const AUTH_KEY_EXPAND = 'cfia_create_auth_v1';
 const ANGLES = ['auto', 'secuela', 'precuela', 'lateral', 'eco'];
+const FORMS = [
+  { id: 'escena',         es: 'ESCENA ÚNICA',         en: 'SINGLE SCENE' },
+  { id: 'segunda-persona',es: 'SEGUNDA PERSONA',      en: 'SECOND PERSON' },
+  { id: 'epistolar',      es: 'CARTA / EPISTOLAR',    en: 'LETTER / EPISTOLARY' },
+  { id: 'inventario',     es: 'INVENTARIO',           en: 'INVENTORY' },
+  { id: 'transcripcion',  es: 'TRANSCRIPCIÓN',        en: 'TRANSCRIPT' },
+  { id: 'informe',        es: 'INFORME TÉCNICO',      en: 'TECHNICAL REPORT' },
+  { id: 'viñetas',        es: 'VIÑETAS',              en: 'VIGNETTES' },
+  { id: 'monologo',       es: 'MONÓLOGO HABLADO',     en: 'SPOKEN MONOLOGUE' },
+  { id: 'diario',         es: 'DIARIO',               en: 'DIARY' },
+  { id: 'presente',       es: 'TIEMPO PRESENTE',      en: 'PRESENT TENSE' },
+  { id: 'futuro-anterior',es: 'MIRADA DESDE EL FUTURO', en: 'FROM THE FUTURE' },
+  { id: 'plural',         es: 'PRIMERA PERSONA PLURAL', en: 'FIRST-PERSON PLURAL' },
+  { id: 'filosofia',      es: 'FILOSÓFICO / ENSAYO',  en: 'PHILOSOPHICAL / ESSAY' },
+];
 
 function ExpandPanel({ story, lang, t, onCreated }) {
   const [auth, setAuth] = useState(() => {
     try { return localStorage.getItem(AUTH_KEY_EXPAND) || ''; } catch { return ''; }
   });
   const [angle, setAngle] = useState('auto');
+  const [form, setForm] = useState('inherit');
+  const [length, setLength] = useState('medium');
+  const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const parentForm = story.form;
+  const parentFormDef = parentForm ? FORMS.find((f) => f.id === parentForm) : null;
+  const parentFormLabel = parentFormDef ? (lang === 'es' ? parentFormDef.es : parentFormDef.en) : t.parentFormUnknown;
 
   if (!auth) {
     return (
@@ -187,7 +259,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
       const r = await fetch(`/api/stories/${story.slug}/expand`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
-        body: JSON.stringify({ angle, provider: 'anthropic', length: 'medium', temp: 0.9 }),
+        body: JSON.stringify({ angle, form, prompt, length, provider: 'anthropic', temp: 0.9 }),
       });
       if (r.status === 401) {
         try { localStorage.removeItem(AUTH_KEY_EXPAND); } catch {}
@@ -230,6 +302,49 @@ function ExpandPanel({ story, lang, t, onCreated }) {
           </div>
         </div>
 
+        <div style={expandStyles.field}>
+          <label style={expandStyles.label}>
+            {t.formLabel}
+            {parentForm ? <span style={expandStyles.parentTag}> · {t.parentFormTag}: {parentFormLabel}</span> : null}
+          </label>
+          <select style={expandStyles.select} value={form} onChange={(e) => setForm(e.target.value)}>
+            <option value="inherit">{t.inheritOpt}</option>
+            {FORMS.map((f) => (
+              <option key={f.id} value={f.id}>{lang === 'es' ? f.es : f.en}</option>
+            ))}
+          </select>
+          <div style={expandStyles.hintSmall}>{t.formHintExpand}</div>
+        </div>
+
+        <div style={expandStyles.field}>
+          <label style={expandStyles.label}>{t.lengthLabel}</label>
+          <div style={expandStyles.segBox}>
+            {['short', 'medium', 'long'].map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setLength(k)}
+                style={{ ...expandStyles.segBtn, ...(length === k ? expandStyles.segBtnOn : {}) }}
+              >
+                {t.lengthOpts[k]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={expandStyles.field}>
+          <label style={expandStyles.label}>{t.promptLabel}</label>
+          <textarea
+            style={expandStyles.textarea}
+            rows={3}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={t.promptPh}
+          />
+        </div>
+
+        <ContextViewer slug={story.slug} lang={lang} t={t} />
+
         {error ? <div style={expandStyles.error}>{t.err} {error}</div> : null}
 
         <button
@@ -245,13 +360,140 @@ function ExpandPanel({ story, lang, t, onCreated }) {
   );
 }
 
-const threadStyles = {
+function ContextViewer({ slug, lang, t }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const toggle = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (data || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/stories/${slug}/expand-context`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setData(await r.json());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const entities = data?.universe?.memory?.entities;
+
+  return (
+    <div style={ctxStyles.wrap}>
+      <button type="button" onClick={toggle} style={ctxStyles.toggle}>
+        {open ? t.ctxToggleHide : t.ctxToggleShow}
+      </button>
+      {open ? (
+        <div style={ctxStyles.panel}>
+          {loading ? (
+            <div style={ctxStyles.loading}>{t.ctxLoading}<span style={expandStyles.blink}>◼</span></div>
+          ) : error ? (
+            <div style={expandStyles.error}>{t.err} {error}</div>
+          ) : data ? (
+            <>
+              <div style={ctxStyles.section}>
+                <div style={ctxStyles.sectionLbl}>◼ {t.ctxAncestors} ({data.ancestors.length})</div>
+                {data.ancestors.length ? (
+                  <ol style={ctxStyles.list}>
+                    {data.ancestors.map((a) => (
+                      <li key={a.slug} style={ctxStyles.ancItem}>
+                        <span style={ctxStyles.ancNum}>[{String(a.num).padStart(3, '0')}]</span>
+                        <span style={ctxStyles.ancTitle}>{a.titleEs}</span>
+                        <div style={ctxStyles.ancExcerpt}>{a.excerptEs}</div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <div style={ctxStyles.empty}>{t.ctxAncestorsEmpty}</div>
+                )}
+              </div>
+
+              <div style={ctxStyles.section}>
+                <div style={ctxStyles.sectionLbl}>◼ {t.ctxParent} · {data.parent.bodyChars} {t.ctxChars}</div>
+                <div style={ctxStyles.bodyPreview}>{data.parent.bodyPreview}</div>
+              </div>
+
+              {data.universe ? (
+                <div style={ctxStyles.section}>
+                  <div style={ctxStyles.sectionLbl}>
+                    ◼ {t.ctxUniverse} · {data.universe.name?.[lang] || data.universe.name?.es}
+                  </div>
+                  {data.universe.memory?.summaryEs ? (
+                    <div style={ctxStyles.memSummary}>{data.universe.memory.summaryEs}</div>
+                  ) : <div style={ctxStyles.empty}>—</div>}
+                  {entities && Object.keys(entities).length ? (
+                    <div style={ctxStyles.entBlock}>
+                      <div style={ctxStyles.sectionLbl}>◻ {t.ctxEntities}</div>
+                      {Object.entries(entities).map(([k, v]) => (
+                        Array.isArray(v) && v.length ? (
+                          <div key={k} style={ctxStyles.entRow}>
+                            <span style={ctxStyles.entKey}>{k}:</span> <span style={ctxStyles.entVal}>{v.join(' · ')}</span>
+                          </div>
+                        ) : null
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {data.author ? (
+                <div style={ctxStyles.section}>
+                  <div style={ctxStyles.sectionLbl}>◼ {t.ctxAuthor} · {data.author.name}</div>
+                  <div style={ctxStyles.authorNote}>{data.author.styleNote}</div>
+                </div>
+              ) : null}
+
+              <div style={ctxStyles.stats}>
+                {t.ctxStats}: {data.stats.totalChars.toLocaleString()} {t.ctxChars}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const ctxStyles = {
+  wrap: { display: 'flex', flexDirection: 'column', gap: 8 },
+  toggle: { alignSelf: 'flex-start', background: 'transparent', border: '1px solid #3a3832', color: '#b8b5ad', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', padding: '8px 14px', cursor: 'pointer', textTransform: 'uppercase' },
+  panel: { border: '1px solid #2a2a35', padding: '16px 18px', background: '#0f0f16', display: 'flex', flexDirection: 'column', gap: 20 },
+  loading: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#6b6860', letterSpacing: '0.16em' },
+  section: { display: 'flex', flexDirection: 'column', gap: 8 },
+  sectionLbl: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
+  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 },
+  ancItem: { display: 'flex', flexDirection: 'column', gap: 4, borderLeft: '1px solid #3a3832', paddingLeft: 10 },
+  ancNum: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#6b6860', marginRight: 6 },
+  ancTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, color: '#f5f3ee' },
+  ancExcerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 13, lineHeight: 1.5, color: '#b8b5ad' },
+  empty: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6b6860', letterSpacing: '0.12em' },
+  bodyPreview: { fontFamily: "'Instrument Serif', serif", fontSize: 13, lineHeight: 1.55, color: '#b8b5ad', maxHeight: 220, overflow: 'auto', border: '1px solid #2a2a35', padding: 10, whiteSpace: 'pre-wrap' },
+  memSummary: { fontFamily: "'Instrument Serif', serif", fontSize: 13, lineHeight: 1.55, color: '#b8b5ad', border: '1px solid #2a2a35', padding: 10 },
+  entBlock: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 },
+  entRow: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.08em', color: '#b8b5ad' },
+  entKey: { color: '#6b6860', textTransform: 'uppercase', letterSpacing: '0.14em' },
+  entVal: { color: '#f5f3ee' },
+  authorNote: { fontFamily: "'Instrument Serif', serif", fontSize: 13, lineHeight: 1.5, color: '#b8b5ad' },
+  stats: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#e8b84a', textTransform: 'uppercase', borderTop: '1px solid #2a2a35', paddingTop: 10 },
+};
+
+const relatedStyles = {
   wrap: { display: 'flex', flexDirection: 'column', gap: 16, padding: '24px 0' },
   label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
-  row: { display: 'grid', gridTemplateColumns: '140px 1fr', gap: 16, alignItems: 'start' },
-  rowLbl: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase', paddingTop: 2 },
-  childList: { display: 'flex', flexDirection: 'column', gap: 6 },
-  link: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, color: '#f5f3ee', cursor: 'pointer', borderBottom: '1px solid #3a3832', alignSelf: 'flex-start', paddingBottom: 2 },
+  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },
+  item: { borderTop: '1px solid #2a2a35' },
+  link: { display: 'grid', gridTemplateColumns: '150px 48px 1fr auto', alignItems: 'baseline', gap: 16, padding: '16px 4px', cursor: 'pointer', color: '#f5f3ee', textDecoration: 'none' },
+  badge: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
+  num: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.12em', color: '#6b6860' },
+  title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, lineHeight: 1.25, color: '#f5f3ee' },
+  arrow: { fontFamily: "'JetBrains Mono', monospace", fontSize: 14, color: '#6b6860' },
 };
 
 const expandStyles = {
@@ -263,6 +505,10 @@ const expandStyles = {
   segBox: { display: 'flex', border: '1px solid #3a3832', flexWrap: 'wrap' },
   segBtn: { flex: 1, minWidth: 80, background: '#0a0a0f', border: 'none', borderRight: '1px solid #3a3832', color: '#b8b5ad', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', padding: '12px 8px', cursor: 'pointer' },
   segBtnOn: { background: '#e8b84a', color: '#0a0a0f' },
+  select: { background: '#0a0a0f', border: '1px solid #3a3832', color: '#f5f3ee', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.1em', padding: '10px 12px', outline: 'none' },
+  textarea: { background: '#0a0a0f', border: '1px solid #3a3832', color: '#f5f3ee', fontFamily: "'Instrument Serif', serif", fontSize: 16, lineHeight: 1.5, padding: '12px 14px', outline: 'none', resize: 'vertical', minHeight: 80 },
+  parentTag: { fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', color: '#6b6860', marginLeft: 4 },
+  hintSmall: { fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.12em', color: '#6b6860', textTransform: 'uppercase' },
   submit: { alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.18em', background: '#e8b84a', color: '#0a0a0f', border: 'none', padding: '14px 24px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10 },
   submitDisabled: { background: '#3a3832', color: '#6b6860', cursor: 'wait' },
   blink: { animation: 'cfia-blink 1.1s steps(1) infinite' },
@@ -492,3 +738,4 @@ const rdStyles = {
 };
 
 window.Reader = Reader;
+window.ExpandContextViewer = ContextViewer;
