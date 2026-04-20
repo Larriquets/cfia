@@ -422,10 +422,6 @@ function Create({ lang, onCreated, stories = [] }) {
               />
             </div>
 
-            {window.UniverseMemoryViewer ? (
-              <window.UniverseMemoryViewer lang={lang} t={t} />
-            ) : null}
-
             <div style={styles.field}>
               <button type="button" onClick={() => setUniverseOpen((v) => !v)} style={styles.threadToggle}>
                 {universeOpen ? t.universeToggleHide : t.universeToggleShow}

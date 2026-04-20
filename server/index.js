@@ -8,7 +8,7 @@ import { generateStory } from './generate.js';
 import { generateStoryGemini } from './generateGemini.js';
 import { findOverusedWords } from './titleGuard.js';
 import { pickCreativityKnobs } from './creativityKnobs.js';
-import { loadDefaultContext, loadParentContext, buildContextBlock } from './universeContext.js';
+import { loadParentContext, buildContextBlock } from './universeContext.js';
 import { updateUniverseMemory, compactUniverseMemory, compactThread } from './universeMemory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -469,11 +469,14 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     const recentTitles = recentRows.flatMap((r) => [r.titleEs, r.titleEn].filter(Boolean));
     const overusedWords = findOverusedWords(recentTitles, 2);
 
-    const rootModeActive = !!(rootMode && rootMode.enabled && !(threadBase && (threadBase.summaryEs || threadBase.summaryEn)));
+    const hasThreadBase = !!(threadBase && (threadBase.summaryEs || threadBase.summaryEn));
+    const rootModeExplicit = !!(rootMode && rootMode.enabled && !hasThreadBase);
+    const rootModeActive = rootModeExplicit || !hasThreadBase;
 
-    const ctx = await loadDefaultContext();
-    const contextBlock = rootModeActive ? '' : buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
-    if (rootModeActive) console.log('[generate] rootMode active — suppressing global context (author/universe memory/entities)');
+    const ctx = { author: null, universe: null };
+    const contextBlock = '';
+    if (rootModeActive) console.log(`[generate] root story — no universe context injected (explicit rootMode=${rootModeExplicit})`);
+    else console.log('[generate] story continues a threadBase universe — universe seed in extraUser, no default author/universe');
 
     let threadBaseBlock = '';
     if (threadBase && (threadBase.summaryEs || threadBase.summaryEn)) {
@@ -508,7 +511,7 @@ Escribí el próximo capítulo del universo.
     }
 
     let rootModeBlock = '';
-    if (rootModeActive) {
+    if (rootModeExplicit) {
       const rmName = (rootMode.universeName || '').trim();
       const rmRule = (rootMode.worldRule || '').trim();
       const rmEntitiesRaw = Array.isArray(rootMode.entities) ? rootMode.entities : [];
@@ -546,14 +549,16 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
     const combinedExtraUser = threadBaseBlock + rootModeBlock;
 
     let universeParentId = null;
+    let threadUniverseId = null;
     if (threadBase && threadBase.rootSlug) {
       const rootStory = await prisma.story.findUnique({
         where: { slug: threadBase.rootSlug },
-        select: { id: true, slug: true },
+        select: { id: true, slug: true, universeId: true },
       });
       if (rootStory) {
         universeParentId = rootStory.id;
-        console.log(`[generate] adopting new story under universe root "${rootStory.slug}" (id=${rootStory.id})`);
+        threadUniverseId = rootStory.universeId ?? null;
+        console.log(`[generate] adopting new story under universe root "${rootStory.slug}" (id=${rootStory.id}, universeId=${threadUniverseId})`);
       } else {
         console.warn(`[generate] threadBase.rootSlug "${threadBase.rootSlug}" not found — story will be created as root`);
       }
@@ -624,7 +629,7 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
     }
 
     let rootAuthorId = null;
-    if (rootModeActive) {
+    if (rootModeExplicit) {
       const echo8 = await prisma.author.upsert({
         where: { slug: 'echo-8' },
         update: {},
@@ -644,8 +649,8 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
     for (const { gen, modelLabel } of ok) {
       const story = await persistStory({
         gen, modelLabel, temp, tags,
-        authorId: rootModeActive ? rootAuthorId : (ctx.author?.id ?? null),
-        universeId: rootModeActive ? null : (ctx.universe?.id ?? null),
+        authorId: rootModeExplicit ? rootAuthorId : null,
+        universeId: rootModeActive ? null : threadUniverseId,
         parentId: universeParentId,
         form: gen.knobs?.form?.id ?? null,
       });
@@ -658,9 +663,9 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
       res.json(stories[0]);
     }
 
-    if (!rootModeActive && ctx.universe?.id) {
+    if (!rootModeActive && threadUniverseId) {
       for (const { gen } of ok) {
-        updateUniverseMemory({ universeId: ctx.universe.id, story: gen })
+        updateUniverseMemory({ universeId: threadUniverseId, story: gen })
           .catch((e) => console.error('[memory] update failed:', e?.message || e));
       }
     }

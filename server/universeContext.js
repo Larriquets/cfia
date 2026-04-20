@@ -2,15 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function loadDefaultContext() {
-  const author = await prisma.author.findUnique({ where: { slug: 'echo-7' } });
-  const universe = await prisma.universe.findUnique({
-    where: { slug: 'tau-ceti-drift' },
-    include: { memory: true },
-  });
-  return { author, universe };
-}
-
 export async function loadParentContext(parent) {
   if (!parent?.universeId) return { author: parent?.author ?? null, universe: null };
   const universe = await prisma.universe.findUnique({
