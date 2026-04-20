@@ -74,17 +74,30 @@ Cada vez que se crea un cuento nuevo, Gemini Flash Lite actualiza esta memoria. 
 
 En **CREAR · NUEVO** podés hacer clic en **▸ VER MEMORIA DEL UNIVERSO** para inspeccionarla. Si superó unos 8000 caracteres, aparece el botón **◼ COMPACTAR MEMORIA**: condensa el resumen y las entidades conservando los nombres propios y lo esencial, sin borrar historia. Usa una llamada de Gemini Flash Lite (barata y rápida).
 
-### Hilos (cadenas de herencia) como base de un cuento nuevo
+### Hilos (sub-universos) como base de un cuento nuevo
+
+Cuando un cuento se hereda tres o más veces — padre, hijo, nieto, bisnieto… — esa cadena deja de ser una "serie" y se convierte en **un sub-universo propio**: tiene sus personajes, sus lugares, sus reglas internas, su tono. Es tan específico como el universo global, pero más cerrado.
+
+Eso es exactamente lo que compactás acá.
 
 En **CREAR · NUEVO** hay una sección **▸ USAR UN HILO COMO BASE**:
 
-1. Elegís un cuento hoja (uno que tenga ancestros — un nieto, bisnieto, etc.).
+1. Elegís un cuento hoja (uno que tenga ancestros — un nieto, bisnieto, etc.). En el menú vas a ver junto a cada opción cuántos cuentos tiene el hilo; los hilos de 3+ cuentos están marcados con **◼ sub-universo**.
 2. Ves toda su cadena: cuento por cuento, con título y extracto.
-3. Hacés clic en **◼ COMPACTAR ESTE HILO** — condensa toda la cadena en un resumen único + entidades.
-4. Ese resumen queda cargado como "base de hilo previo". El próximo cuento que generes va a nacer como **rama** de ese hilo — no como continuación, sino como una derivación que hereda tono, personajes y mundo pero arranca fresca.
+3. Hacés clic en **◼ COMPACTAR ESTE HILO** — condensa toda la cadena en un resumen único + entidades del sub-universo (personajes, lugares, objetos, eventos específicos de ese hilo).
+4. Ese resumen queda cargado como "base de hilo previo". El próximo cuento que generes va a nacer como **rama** de ese sub-universo — no como continuación directa, sino como una derivación que hereda tono, personajes y mundo pero arranca fresca.
 5. Podés limpiar el hilo base cuando quieras.
 
 Esto es útil cuando una línea narrativa tiene 6, 8, 12 cuentos encadenados y querés abrir una rama nueva sin que la IA tenga que leerse 60.000 caracteres de contexto.
+
+### Dos tipos de memoria compactable
+
+| | Memoria del universo | Hilo (sub-universo) |
+|---|---|---|
+| **Alcance** | Todo Tau Ceti Drift | Una cadena padre→hijo→nieto… |
+| **Se actualiza** | Automática, cada cuento nuevo | Solo cuando vos la compactás |
+| **Dónde se usa** | Todos los cuentos la reciben | Solo el cuento nuevo que elijas basar en él |
+| **Cuándo compactar** | Cuando pasa ~8000 chars | Cuando el hilo llega a 3+ cuentos y querés derivar una rama |
 
 ---
 
@@ -128,6 +141,7 @@ Siempre. `/cuentos/el-silencio-de-marte` no se traduce cuando cambiás a inglés
 |---|---|
 | **Cuento** | Una pieza corta. Tiene título, cuerpo, tags, modelo, temperatura, ancestros e hijos. |
 | **Hilo** | Una cadena de cuentos conectados por `padre → hijo → nieto…`. |
+| **Sub-universo** | Un hilo de 3+ cuentos — ya es un mundo cerrado con sus propias reglas, lugares y personajes, distinto del universo global. |
 | **Expansión** | Un cuento nuevo que tiene otro como padre. |
 | **Ángulo** | Cómo la expansión se relaciona con el padre (secuela, precuela, lateral, eco). |
 | **Memoria del universo** | Resumen + entidades recurrentes que persisten entre cuentos. |
