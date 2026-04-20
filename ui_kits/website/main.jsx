@@ -110,6 +110,8 @@ function App() {
         <p>◼ API error: {error}</p>
         <p style={{ color: '#6b6860', fontSize: 13 }}>
           ¿Está el server corriendo? <code>npm run dev</code> arranca api + web.
+          Si ves 404, a veces otro programa usa el puerto 3000: copia <code>.env.example</code> a{' '}
+          <code>.env</code>, pon <code>PORT=3001</code> (u otro libre) y reinicia.
         </p>
       </div>
     );

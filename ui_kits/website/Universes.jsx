@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 function Universes({ lang, onOpen }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [view, setView] = useState('map');
+  const [view, setView] = useState('cosmos');
 
   useEffect(() => {
     fetch('/api/universes')
@@ -426,6 +426,133 @@ function UniverseCosmos({ root, lang, onOpen }) {
   );
 }
 
+function UniverseCosmosMini({ root, lang }) {
+  const [hover, setHover] = useState(null);
+  const layout = useMemo(() => layoutCosmos(root), [root]);
+  const stars = useMemo(() => {
+    const rand = seededRand(root.slug);
+    const arr = [];
+    for (let i = 0; i < 80; i++) {
+      arr.push({ x: rand() * layout.size, y: rand() * layout.size, r: rand() * 0.9 + 0.2, o: rand() * 0.7 + 0.1 });
+    }
+    return arr;
+  }, [root.slug, layout.size]);
+
+  const ancestorPath = useMemo(() => {
+    if (!hover) return new Set();
+    const path = new Set();
+    const byId = new Map(layout.nodes.map((n) => [n.slug, n]));
+    let cur = byId.get(hover);
+    while (cur) {
+      path.add(cur.slug);
+      cur = cur.parentSlug ? byId.get(cur.parentSlug) : null;
+    }
+    return path;
+  }, [hover, layout.nodes]);
+
+  const edgeHighlighted = (e) => ancestorPath.has(e.from) && ancestorPath.has(e.to);
+
+  const viewBox = `0 0 ${layout.size} ${layout.size}`;
+
+  return (
+    <svg
+      viewBox={viewBox}
+      style={{ width: '100%', height: '100%', display: 'block' }}
+      preserveAspectRatio="xMidYMid meet"
+      onMouseLeave={() => setHover(null)}
+    >
+      <defs>
+        <radialGradient id={`nebula-mini-${root.slug}`} cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stopColor="#1a1428" stopOpacity="0.6" />
+          <stop offset="60%" stopColor="#0a0a12" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#050508" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`starGlow-mini-${root.slug}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#e8b84a" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#e8b84a" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width={layout.size} height={layout.size} fill="#050508" />
+      <rect width={layout.size} height={layout.size} fill={`url(#nebula-mini-${root.slug})`} />
+      {stars.map((s, i) => (
+        <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#f5f3ee" opacity={s.o} />
+      ))}
+      {Array.from({ length: layout.maxDepth }).map((_, i) => (
+        <circle key={i} cx={layout.center} cy={layout.center} r={(i + 1) * layout.ringGap} fill="none" stroke="#1a1a22" strokeWidth="0.6" strokeDasharray="2 4" />
+      ))}
+      {layout.edges.map((e, i) => {
+        const hi = edgeHighlighted(e);
+        return (
+          <line
+            key={i}
+            x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+            stroke={hi ? '#e8b84a' : '#3a3832'}
+            strokeWidth={hi ? 1.4 : 0.8}
+            opacity={hover && !hi ? 0.25 : 0.75}
+          />
+        );
+      })}
+      {layout.nodes.map((n) => {
+        const isHovered = hover === n.slug;
+        const onPath = ancestorPath.has(n.slug);
+        const isRoot = n.depth === 0;
+        const r = isRoot ? 7 : 3.5;
+        const color = onPath ? '#e8b84a' : '#b8b5ad';
+        const title = n.title?.[lang] || n.title?.es;
+
+        const labelOffset = isRoot ? 0 : 10;
+        const labelAngle = n.angle;
+        const lx = n.x + Math.cos(labelAngle) * labelOffset;
+        const ly = n.y + Math.sin(labelAngle) * labelOffset;
+        const textAnchor = isRoot ? 'middle' : (Math.cos(labelAngle) >= 0 ? 'start' : 'end');
+        const dx = isRoot ? 0 : (Math.cos(labelAngle) >= 0 ? 4 : -4);
+        const dy = isRoot ? -r - 10 : 3;
+
+        return (
+          <g
+            key={n.slug}
+            style={{ pointerEvents: 'auto', cursor: 'default' }}
+            onMouseEnter={() => setHover(n.slug)}
+          >
+            {(isRoot || isHovered) && (
+              <circle cx={n.x} cy={n.y} r={r * 4} fill={`url(#starGlow-mini-${root.slug})`} opacity={isHovered ? 0.9 : 0.6} />
+            )}
+            <circle cx={n.x} cy={n.y} r={r} fill={color} opacity={hover && !onPath ? 0.3 : 1}>
+              {isRoot && <animate attributeName="r" values={`${r};${r * 1.3};${r}`} dur="2.8s" repeatCount="indefinite" />}
+              {isRoot && <animate attributeName="opacity" values="1;0.7;1" dur="2.8s" repeatCount="indefinite" />}
+            </circle>
+            <text
+              x={lx + dx}
+              y={ly + dy}
+              fontFamily="'JetBrains Mono', monospace"
+              fontSize={isRoot ? '9' : '7'}
+              fill={color}
+              textAnchor={textAnchor}
+              opacity={hover && !onPath ? 0.25 : 1}
+              style={{ letterSpacing: '0.14em' }}
+            >
+              {String(n.num).padStart(3, '0')}
+            </text>
+            {(isRoot || isHovered) && (
+              <text
+                x={lx + dx}
+                y={ly + dy + (isRoot ? -11 : 9)}
+                fontFamily="'Space Grotesk', sans-serif"
+                fontSize={isRoot ? '11' : '8'}
+                fill={onPath ? '#f5f3ee' : '#b8b5ad'}
+                textAnchor={textAnchor}
+                opacity={hover && !onPath ? 0.25 : 1}
+              >
+                {truncate(title, isRoot ? 32 : 22)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function truncate(s, max) {
   if (!s) return '';
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
@@ -487,3 +614,4 @@ const styles = {
 };
 
 window.Universes = Universes;
+window.UniverseCosmosMini = UniverseCosmosMini;

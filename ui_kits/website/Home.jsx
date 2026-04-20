@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 function Home({ stories, lang, onOpen, onNav }) {
-  const { StoryCard, Illustration, LikeButton } = window;
+  const { StoryCard, Illustration, LikeButton, UniverseCosmosMini } = window;
+  const [universes, setUniverses] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/universes')
+      .then((r) => r.ok ? r.json() : { universes: [] })
+      .then((j) => setUniverses(j.universes || []))
+      .catch(() => setUniverses([]));
+  }, []);
   const featured = stories[0];
   const rest = stories.slice(1);
   const latest = rest.slice(0, 6);
@@ -29,6 +37,9 @@ function Home({ stories, lang, onOpen, onNav }) {
         catHead: 'CATEGORÍAS', catSub: 'Explorar por tema',
         gridHead: 'EXPLORAR EN GRILLA', gridSub: 'Una imagen por cuento',
         popHead: 'MÁS POPULARES', popSub: 'Los más likeados',
+        univHead: 'EXPLORAR UNIVERSOS', univSub: 'Sub-mundos del canon — árboles de 3+ cuentos',
+        univAll: 'Ver todos los universos →',
+        univNodes: (n) => `${n} NODOS`,
       }
     : {
         eyebrow: `COLLECTION 2026 · ${stories.length} STORIES`,
@@ -39,6 +50,9 @@ function Home({ stories, lang, onOpen, onNav }) {
         catHead: 'CATEGORIES', catSub: 'Browse by theme',
         gridHead: 'BROWSE AS GRID', gridSub: 'One image per story',
         popHead: 'MOST LIKED', popSub: 'Reader favorites',
+        univHead: 'EXPLORE UNIVERSES', univSub: 'Sub-worlds of the canon — trees of 3+ stories',
+        univAll: 'See all universes →',
+        univNodes: (n) => `${n} NODES`,
       };
 
   return (
@@ -93,6 +107,38 @@ function Home({ stories, lang, onOpen, onNav }) {
           {latest.map(s => <StoryCard key={s.slug} story={s} lang={lang} onOpen={onOpen} />)}
         </div>
       </section>
+
+      {universes && universes.length > 0 && UniverseCosmosMini ? (
+        <>
+          <hr style={homeStyles.ruleHair} />
+          <section className="cfia-sec" style={homeStyles.secWrap}>
+            <div style={homeStyles.secHead}>
+              <div>
+                <div style={homeStyles.eyebrow}>{t.univHead}</div>
+                <div style={homeStyles.secSub}>{t.univSub}</div>
+              </div>
+              <a style={homeStyles.seeAll} onClick={() => onNav('universes')}>{t.univAll}</a>
+            </div>
+            <div style={homeStyles.cosmosGrid}>
+              {universes.slice(0, 6).map((u) => (
+                <div
+                  key={u.root.slug}
+                  style={homeStyles.cosmosTile}
+                  onClick={() => onNav('universes')}
+                >
+                  <div style={homeStyles.cosmosCanvas}>
+                    <UniverseCosmosMini root={u.root} lang={lang} />
+                  </div>
+                  <div style={homeStyles.cosmosMeta}>
+                    <span style={homeStyles.cosmosNum}>◼ {t.univNodes(u.total)}</span>
+                    <span style={homeStyles.cosmosTitle}>{u.root.title?.[lang] || u.root.title?.es}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
 
       <hr style={homeStyles.ruleHair} />
 
@@ -202,6 +248,12 @@ const homeStyles = {
   tileTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: '#f5f3ee', letterSpacing: '-0.01em', lineHeight: 1.15, fontWeight: 500, margin: 0 },
   tileTags: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#b8b5ad' },
   tileFoot: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  cosmosGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 },
+  cosmosTile: { background: '#050508', border: '1px solid #2a2a35', display: 'flex', flexDirection: 'column', cursor: 'pointer', overflow: 'hidden', transition: 'border-color 120ms' },
+  cosmosCanvas: { width: '100%', aspectRatio: '1 / 1', background: '#050508' },
+  cosmosMeta: { display: 'flex', flexDirection: 'column', gap: 6, padding: 14, borderTop: '1px solid #2a2a35' },
+  cosmosNum: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#e8b84a' },
+  cosmosTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, color: '#f5f3ee', letterSpacing: '-0.01em', lineHeight: 1.2 },
 };
 
 window.Home = Home;
