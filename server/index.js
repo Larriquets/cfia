@@ -270,6 +270,53 @@ app.get('/api/stories/:slug/thread', async (req, res) => {
   }
 });
 
+app.get('/api/universes', async (_req, res) => {
+  try {
+    const stories = await prisma.story.findMany({
+      orderBy: { num: 'asc' },
+      select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, excerptEn: true, parentId: true, date: true },
+    });
+
+    const byId = new Map(stories.map((s) => [s.id, { ...s, children: [] }]));
+    const roots = [];
+    for (const s of byId.values()) {
+      if (s.parentId && byId.has(s.parentId)) {
+        byId.get(s.parentId).children.push(s);
+      } else {
+        roots.push(s);
+      }
+    }
+
+    const countTree = (node) => {
+      let n = 1;
+      for (const c of node.children) n += countTree(c);
+      return n;
+    };
+
+    const serializeNode = (node) => ({
+      slug: node.slug,
+      num: node.num,
+      title: { es: node.titleEs, en: node.titleEn },
+      excerpt: { es: node.excerptEs, en: node.excerptEn },
+      children: node.children.map(serializeNode),
+    });
+
+    const universes = roots
+      .map((root) => ({ root, total: countTree(root) }))
+      .filter((u) => u.total >= 3)
+      .sort((a, b) => b.total - a.total)
+      .map((u) => ({
+        root: serializeNode(u.root),
+        total: u.total,
+      }));
+
+    res.json({ universes });
+  } catch (e) {
+    console.error('universes error:', e);
+    res.status(500).json({ error: e.message || 'universes failed' });
+  }
+});
+
 app.post('/api/stories/:slug/compact-thread', requireCreatePassword, async (req, res) => {
   try {
     const chain = await collectThreadFromLeaf(req.params.slug);

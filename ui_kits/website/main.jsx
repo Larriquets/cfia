@@ -14,8 +14,9 @@ import './Catalog.jsx';
 import './Reader.jsx';
 import './About.jsx';
 import './Create.jsx';
+import './Universes.jsx';
 
-const { Nav, Footer, Home, Catalog, Reader, About, Create } = window;
+const { Nav, Footer, Home, Catalog, Reader, About, Create, Universes } = window;
 
 function App() {
   const [route, setRoute] = useState('home');
@@ -82,6 +83,7 @@ function App() {
       <Nav route={route} onNav={onNav} lang={lang} onLang={setLang} />
       {route === 'home' && <Home stories={stories} lang={lang} onOpen={onOpen} onNav={onNav} />}
       {route === 'catalog' && <Catalog stories={stories} lang={lang} onOpen={onOpen} />}
+      {route === 'universes' && <Universes lang={lang} onOpen={onOpen} />}
       {route === 'create' && <Create lang={lang} onCreated={onCreated} stories={stories} />}
       {route === 'reader' && current && <Reader story={current} lang={lang} onBack={() => onNav('catalog')} onOpen={onOpen} onCreated={onCreated} />}
       {route === 'about' && <About lang={lang} onNav={onNav} />}

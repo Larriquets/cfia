@@ -5,6 +5,7 @@ function Nav({ route, onNav, lang, onLang }) {
   const links = [
     { k: 'home', es: 'INICIO', en: 'HOME' },
     { k: 'catalog', es: 'CATÁLOGO', en: 'CATALOG' },
+    { k: 'universes', es: 'UNIVERSOS', en: 'UNIVERSES' },
     { k: 'create', es: 'CREAR', en: 'CREATE' },
     { k: 'about', es: 'ACERCA DE', en: 'ABOUT' }
   ];

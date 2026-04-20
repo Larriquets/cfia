@@ -26,6 +26,15 @@ Los cuentos pueden tener hijos (expansiones) y nietos. En el lector vas a ver:
 
 Podés navegar arriba y abajo por toda la línea.
 
+### Ver todos los universos
+La página **UNIVERSOS** lista cada árbol de cuentos con 3+ cuentos — es decir, cada sub-universo del canon. Cada entrada muestra:
+
+- La raíz del árbol (el cuento ancestro).
+- El total de cuentos que heredan de ella.
+- El árbol completo en ASCII (`├─` `└─`) con títulos clicables — apretás cualquier nodo y te lleva al cuento.
+
+Es la vista canon: si querés entender el mapa narrativo del sitio, acá lo ves todo de un golpe.
+
 ---
 
 ## Qué podés hacer como curador (modo CREAR)
