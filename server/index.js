@@ -485,12 +485,19 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       threadBaseBlock = `
 BASE DE UNIVERSO
 ===================
-El siguiente cuento pertenece al universo condensado abajo. Nace como RAMA NUEVA del árbol — no continuación directa de ningún cuento, sino derivación del mundo entero:
+El siguiente cuento pertenece al universo condensado abajo y CONTINÚA su hilo narrativo. No es un spin-off ni una rama lateral: es el próximo cuento del mismo mundo, que arrastra personajes, lugares, objetos y tensiones ya establecidas.
 
 ${tbSummary}
 ${entLines.length ? '\nENTIDADES DEL UNIVERSO:\n' + entLines.join('\n') : ''}
 
-El cuento nuevo hereda tono, personajes, lugares y reglas del universo, pero tiene su propia entrada y su propio cierre. Podés traer ecos o figuras del universo, pero no seas capítulo siguiente — sé otra cara del mismo mundo.
+INSTRUCCIONES PARA CONTINUAR EL HILO:
+- Hacé avanzar al menos una de las tramas o tensiones del universo. No reiniciés desde cero.
+- Reutilizá nombres propios (personajes, lugares, objetos, eventos) con la misma grafía. No renombres lo que ya tiene nombre.
+- Respetá lo que ya pasó: consecuencias, muertes, cambios de estado, acuerdos. No contradigas el canon establecido salvo que el cuento mismo lo tematice.
+- Podés introducir un elemento nuevo, pero tiene que dialogar con lo existente — un eco, una respuesta, un giro, no un universo paralelo.
+- Tono y registro: heredados del universo. Si el mundo es contemplativo y denso, no bajés a acción liviana.
+
+Escribí el próximo capítulo del universo.
 ===================
 `;
       console.log(`[generate] using threadBase summary (${tbSummary.length} chars)`);
