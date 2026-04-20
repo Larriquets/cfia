@@ -45,6 +45,11 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         ctxAuthor: 'AUTOR',
         ctxStats: 'TOTAL',
         ctxChars: 'caracteres',
+        ctxWarn: 'La memoria del universo creció mucho. Compactarla condensa el resumen y las entidades sin perder lo esencial (usa Gemini Flash Lite, ~1 call).',
+        ctxCompactBtn: '◼ COMPACTAR MEMORIA',
+        ctxCompacting: 'COMPACTANDO · ',
+        ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`,
+        ctxCompactAuth: 'Ingresá por CREAR para poder compactar.',
         expandBtn: '▸ EXPANDIR',
         expanding: 'GENERANDO · ',
         lockedHint: 'Acceso restringido. Entrá por CREAR.',
@@ -80,6 +85,11 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         ctxAuthor: 'AUTHOR',
         ctxStats: 'TOTAL',
         ctxChars: 'characters',
+        ctxWarn: 'Universe memory has grown large. Compacting condenses summary and entities while keeping the essentials (uses Gemini Flash Lite, ~1 call).',
+        ctxCompactBtn: '◼ COMPACT MEMORY',
+        ctxCompacting: 'COMPACTING · ',
+        ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`,
+        ctxCompactAuth: 'Enter through CREATE to compact.',
         expandBtn: '▸ EXPAND',
         expanding: 'GENERATING · ',
         lockedHint: 'Restricted. Enter through CREATE.',
@@ -360,16 +370,18 @@ function ExpandPanel({ story, lang, t, onCreated }) {
   );
 }
 
+const CTX_WARN_THRESHOLD = 8000;
+
 function ContextViewer({ slug, lang, t }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [compacting, setCompacting] = useState(false);
+  const [compactResult, setCompactResult] = useState(null);
+  const [compactError, setCompactError] = useState(null);
 
-  const toggle = async () => {
-    if (open) { setOpen(false); return; }
-    setOpen(true);
-    if (data || loading) return;
+  const fetchCtx = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -380,6 +392,38 @@ function ContextViewer({ slug, lang, t }) {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggle = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (data || loading) return;
+    await fetchCtx();
+  };
+
+  const compact = async () => {
+    const auth = (() => { try { return localStorage.getItem('cfia_create_auth_v1') || ''; } catch { return ''; } })();
+    if (!auth) { setCompactError(t.ctxCompactAuth); return; }
+    setCompactError(null);
+    setCompactResult(null);
+    setCompacting(true);
+    try {
+      const r = await fetch('/api/universe/compact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      const result = await r.json();
+      setCompactResult(result);
+      await fetchCtx();
+    } catch (e) {
+      setCompactError(e.message);
+    } finally {
+      setCompacting(false);
     }
   };
 
@@ -453,6 +497,32 @@ function ContextViewer({ slug, lang, t }) {
               <div style={ctxStyles.stats}>
                 {t.ctxStats}: {data.stats.totalChars.toLocaleString()} {t.ctxChars}
               </div>
+
+              {data.universe ? (
+                <div style={ctxStyles.compactWrap}>
+                  {data.stats.totalChars > CTX_WARN_THRESHOLD ? (
+                    <div style={ctxStyles.warn}>◼ {t.ctxWarn}</div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={compact}
+                    disabled={compacting}
+                    style={{
+                      ...ctxStyles.compactBtn,
+                      ...(data.stats.totalChars > CTX_WARN_THRESHOLD ? ctxStyles.compactBtnUrgent : {}),
+                      ...(compacting ? ctxStyles.compactBtnDisabled : {}),
+                    }}
+                  >
+                    {compacting ? <>{t.ctxCompacting}<span style={expandStyles.blink}>◼</span></> : t.ctxCompactBtn}
+                  </button>
+                  {compactResult ? (
+                    <div style={ctxStyles.compactDone}>✓ {t.ctxCompactDone(compactResult)}</div>
+                  ) : null}
+                  {compactError ? (
+                    <div style={expandStyles.error}>{t.err} {compactError}</div>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -482,6 +552,12 @@ const ctxStyles = {
   entVal: { color: '#f5f3ee' },
   authorNote: { fontFamily: "'Instrument Serif', serif", fontSize: 13, lineHeight: 1.5, color: '#b8b5ad' },
   stats: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#e8b84a', textTransform: 'uppercase', borderTop: '1px solid #2a2a35', paddingTop: 10 },
+  compactWrap: { display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid #2a2a35', paddingTop: 12 },
+  warn: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.5, letterSpacing: '0.08em', color: '#e8b84a', border: '1px solid #e8b84a', padding: 10, background: 'rgba(232,184,74,0.06)' },
+  compactBtn: { alignSelf: 'flex-start', background: 'transparent', border: '1px solid #3a3832', color: '#b8b5ad', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', padding: '10px 16px', cursor: 'pointer', textTransform: 'uppercase' },
+  compactBtnUrgent: { background: '#e8b84a', borderColor: '#e8b84a', color: '#0a0a0f' },
+  compactBtnDisabled: { opacity: 0.5, cursor: 'wait' },
+  compactDone: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#9ac17a', textTransform: 'uppercase' },
 };
 
 const relatedStyles = {
@@ -737,5 +813,127 @@ const rdStyles = {
   colophonMono: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#6b6860', lineHeight: 1.8 }
 };
 
+function UniverseMemoryViewer({ lang, t }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [compacting, setCompacting] = useState(false);
+  const [compactResult, setCompactResult] = useState(null);
+  const [compactError, setCompactError] = useState(null);
+
+  const fetchMem = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/universe');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setData(await r.json());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggle = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (data || loading) return;
+    await fetchMem();
+  };
+
+  const compact = async () => {
+    const auth = (() => { try { return localStorage.getItem('cfia_create_auth_v1') || ''; } catch { return ''; } })();
+    if (!auth) { setCompactError(t.ctxCompactAuth); return; }
+    setCompactError(null);
+    setCompactResult(null);
+    setCompacting(true);
+    try {
+      const r = await fetch('/api/universe/compact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      setCompactResult(await r.json());
+      await fetchMem();
+    } catch (e) {
+      setCompactError(e.message);
+    } finally {
+      setCompacting(false);
+    }
+  };
+
+  const summary = data?.memory?.summary?.[lang] || data?.memory?.summary?.es || '';
+  const entities = data?.memory?.entities;
+  const totalChars = (summary?.length || 0) + (entities ? JSON.stringify(entities).length : 0);
+
+  return (
+    <div style={ctxStyles.wrap}>
+      <button type="button" onClick={toggle} style={ctxStyles.toggle}>
+        {open ? t.umToggleHide : t.umToggleShow}
+      </button>
+      {open ? (
+        <div style={ctxStyles.panel}>
+          {loading ? (
+            <div style={ctxStyles.loading}>{t.ctxLoading}<span style={expandStyles.blink}>◼</span></div>
+          ) : error ? (
+            <div style={expandStyles.error}>{t.err} {error}</div>
+          ) : data ? (
+            <>
+              <div style={ctxStyles.section}>
+                <div style={ctxStyles.sectionLbl}>
+                  ◼ {t.ctxUniverse} · {data.universe?.name?.[lang] || data.universe?.name?.es}
+                </div>
+                {summary ? (
+                  <div style={ctxStyles.memSummary}>{summary}</div>
+                ) : <div style={ctxStyles.empty}>—</div>}
+                {entities && Object.keys(entities).length ? (
+                  <div style={ctxStyles.entBlock}>
+                    <div style={ctxStyles.sectionLbl}>◻ {t.ctxEntities}</div>
+                    {Object.entries(entities).map(([k, v]) => (
+                      Array.isArray(v) && v.length ? (
+                        <div key={k} style={ctxStyles.entRow}>
+                          <span style={ctxStyles.entKey}>{k}:</span> <span style={ctxStyles.entVal}>{v.join(' · ')}</span>
+                        </div>
+                      ) : null
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div style={ctxStyles.stats}>{t.ctxStats}: {totalChars.toLocaleString()} {t.ctxChars}</div>
+
+              <div style={ctxStyles.compactWrap}>
+                {totalChars > CTX_WARN_THRESHOLD ? (
+                  <div style={ctxStyles.warn}>◼ {t.ctxWarn}</div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={compact}
+                  disabled={compacting}
+                  style={{
+                    ...ctxStyles.compactBtn,
+                    ...(totalChars > CTX_WARN_THRESHOLD ? ctxStyles.compactBtnUrgent : {}),
+                    ...(compacting ? ctxStyles.compactBtnDisabled : {}),
+                  }}
+                >
+                  {compacting ? <>{t.ctxCompacting}<span style={expandStyles.blink}>◼</span></> : t.ctxCompactBtn}
+                </button>
+                {compactResult ? <div style={ctxStyles.compactDone}>✓ {t.ctxCompactDone(compactResult)}</div> : null}
+                {compactError ? <div style={expandStyles.error}>{t.err} {compactError}</div> : null}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 window.Reader = Reader;
 window.ExpandContextViewer = ContextViewer;
+window.UniverseMemoryViewer = UniverseMemoryViewer;

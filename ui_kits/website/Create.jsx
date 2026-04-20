@@ -69,6 +69,14 @@ function Create({ lang, onCreated, stories = [] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const [threadSlug, setThreadSlug] = useState('');
+  const [threadChain, setThreadChain] = useState(null);
+  const [threadChainLoading, setThreadChainLoading] = useState(false);
+  const [threadSummary, setThreadSummary] = useState(null);
+  const [threadCompacting, setThreadCompacting] = useState(false);
+  const [threadError, setThreadError] = useState(null);
+  const [threadOpen, setThreadOpen] = useState(false);
+
   const [auth, setAuth] = useState(() => {
     try { return localStorage.getItem(AUTH_KEY) || ''; } catch { return ''; }
   });
@@ -105,8 +113,8 @@ function Create({ lang, onCreated, stories = [] }) {
   };
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', subtitleExpand: 'ECHO-7 escribe un nuevo cuento que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, expandFormLabel: 'FORMA NARRATIVA', expandFormHint: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.', inheritOpt: 'HEREDAR DEL PADRE', parentFormTag: 'FORMA DEL PADRE', parentFormUnknown: 'desconocida', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7', ctxToggleHide: '▾ OCULTAR CONTEXTO', ctxLoading: 'CARGANDO CONTEXTO · ', ctxAncestors: 'CADENA DE ANCESTROS', ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.', ctxParent: 'CUERPO DEL PADRE (entra completo)', ctxUniverse: 'MEMORIA DEL UNIVERSO', ctxEntities: 'ENTIDADES RECURRENTES', ctxAuthor: 'AUTOR', ctxStats: 'TOTAL', ctxChars: 'caracteres', expanding: 'GENERANDO · ', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
-    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'The AI generates the full story. You set the tone.', subtitleExpand: 'ECHO-7 writes a new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, expandFormLabel: 'NARRATIVE FORM', expandFormHint: 'INHERIT reuses the parent form. Pick another to contrast.', inheritOpt: 'INHERIT FROM PARENT', parentFormTag: 'PARENT FORM', parentFormUnknown: 'unknown', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7', ctxToggleHide: '▾ HIDE CONTEXT', ctxLoading: 'LOADING CONTEXT · ', ctxAncestors: 'ANCESTOR CHAIN', ctxAncestorsEmpty: 'This story has no ancestors — it is a root.', ctxParent: 'PARENT BODY (sent in full)', ctxUniverse: 'UNIVERSE MEMORY', ctxEntities: 'RECURRING ENTITIES', ctxAuthor: 'AUTHOR', ctxStats: 'TOTAL', ctxChars: 'characters', expanding: 'GENERATING · ', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', subtitleExpand: 'ECHO-7 escribe un nuevo cuento que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, expandFormLabel: 'FORMA NARRATIVA', expandFormHint: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.', inheritOpt: 'HEREDAR DEL PADRE', parentFormTag: 'FORMA DEL PADRE', parentFormUnknown: 'desconocida', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7', ctxToggleHide: '▾ OCULTAR CONTEXTO', ctxLoading: 'CARGANDO CONTEXTO · ', ctxAncestors: 'CADENA DE ANCESTROS', ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.', ctxParent: 'CUERPO DEL PADRE (entra completo)', ctxUniverse: 'MEMORIA DEL UNIVERSO', ctxEntities: 'ENTIDADES RECURRENTES', ctxAuthor: 'AUTOR', ctxStats: 'TOTAL', ctxChars: 'caracteres', ctxWarn: 'La memoria del universo creció mucho. Compactarla condensa el resumen y las entidades sin perder lo esencial (usa Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACTAR MEMORIA', ctxCompacting: 'COMPACTANDO · ', ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Ingresá por CREAR para poder compactar.', umToggleShow: '▸ VER MEMORIA DEL UNIVERSO', umToggleHide: '▾ OCULTAR MEMORIA', threadToggleShow: '▸ USAR UN HILO COMO BASE', threadToggleHide: '▾ OCULTAR HILO BASE', threadPickLabel: 'ELEGIR CUENTO HOJA (HILO)', threadPickPh: '— Elegí un cuento con ancestros —', threadChainTitle: (n) => `CADENA DE ${n} CUENTOS`, threadChainLoading: 'CARGANDO HILO · ', threadCompactBtn: '◼ COMPACTAR ESTE HILO', threadCompacting: 'COMPACTANDO HILO · ', threadCompactDone: (r) => `HILO CONDENSADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} cuentos`, threadInUse: 'RESUMEN DE HILO EN USO — el cuento nuevo nacerá como rama de este hilo.', threadClear: 'LIMPIAR HILO BASE', threadEntitiesLabel: 'ENTIDADES DEL HILO', expanding: 'GENERANDO · ', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
+    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'The AI generates the full story. You set the tone.', subtitleExpand: 'ECHO-7 writes a new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, expandFormLabel: 'NARRATIVE FORM', expandFormHint: 'INHERIT reuses the parent form. Pick another to contrast.', inheritOpt: 'INHERIT FROM PARENT', parentFormTag: 'PARENT FORM', parentFormUnknown: 'unknown', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7', ctxToggleHide: '▾ HIDE CONTEXT', ctxLoading: 'LOADING CONTEXT · ', ctxAncestors: 'ANCESTOR CHAIN', ctxAncestorsEmpty: 'This story has no ancestors — it is a root.', ctxParent: 'PARENT BODY (sent in full)', ctxUniverse: 'UNIVERSE MEMORY', ctxEntities: 'RECURRING ENTITIES', ctxAuthor: 'AUTHOR', ctxStats: 'TOTAL', ctxChars: 'characters', ctxWarn: 'Universe memory has grown large. Compacting condenses summary and entities while keeping the essentials (uses Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACT MEMORY', ctxCompacting: 'COMPACTING · ', ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Enter through CREATE to compact.', umToggleShow: '▸ SHOW UNIVERSE MEMORY', umToggleHide: '▾ HIDE MEMORY', threadToggleShow: '▸ USE A THREAD AS BASE', threadToggleHide: '▾ HIDE THREAD BASE', threadPickLabel: 'PICK LEAF STORY (THREAD)', threadPickPh: '— Choose a story with ancestors —', threadChainTitle: (n) => `CHAIN OF ${n} STORIES`, threadChainLoading: 'LOADING THREAD · ', threadCompactBtn: '◼ COMPACT THIS THREAD', threadCompacting: 'COMPACTING THREAD · ', threadCompactDone: (r) => `THREAD CONDENSED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} stories`, threadInUse: 'THREAD SUMMARY IN USE — the new story will branch from this thread.', threadClear: 'CLEAR THREAD BASE', threadEntitiesLabel: 'THREAD ENTITIES', expanding: 'GENERATING · ', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
 
   const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
   const isBoth = provider === 'both';
@@ -146,7 +154,10 @@ function Create({ lang, onCreated, stories = [] }) {
       const url = mode === 'expand' ? `/api/stories/${parentSlug}/expand` : '/api/stories/generate';
       const body = mode === 'expand'
         ? { provider: provider === 'both' ? 'anthropic' : provider, model: provider === 'both' ? undefined : model, temp, angle, form: expandForm, prompt, length }
-        : { tags, provider, model, temp, prompt, length, form };
+        : {
+            tags, provider, model, temp, prompt, length, form,
+            ...(threadSummary ? { threadBase: { summaryEs: threadSummary.summaryEs, summaryEn: threadSummary.summaryEn, entities: threadSummary.entities } } : {}),
+          };
       const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
@@ -388,6 +399,135 @@ function Create({ lang, onCreated, stories = [] }) {
                 placeholder={t.promptPh}
               />
             </div>
+
+            {window.UniverseMemoryViewer ? (
+              <window.UniverseMemoryViewer lang={lang} t={t} />
+            ) : null}
+
+            <div style={styles.field}>
+              <button type="button" onClick={() => setThreadOpen((v) => !v)} style={styles.threadToggle}>
+                {threadOpen ? t.threadToggleHide : t.threadToggleShow}
+              </button>
+              {threadOpen ? (
+                <div style={styles.threadBox}>
+                  <label style={styles.label}>{t.threadPickLabel}</label>
+                  <select
+                    style={styles.select}
+                    value={threadSlug}
+                    onChange={async (e) => {
+                      const slug = e.target.value;
+                      setThreadSlug(slug);
+                      setThreadChain(null);
+                      setThreadError(null);
+                      if (!slug) return;
+                      setThreadChainLoading(true);
+                      try {
+                        const r = await fetch(`/api/stories/${slug}/thread`);
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        const data = await r.json();
+                        setThreadChain(data.stories || []);
+                      } catch (err) {
+                        setThreadError(err.message);
+                      } finally {
+                        setThreadChainLoading(false);
+                      }
+                    }}
+                  >
+                    <option value="">{t.threadPickPh}</option>
+                    {sortedStories.filter((s) => s.parentSlug).map((s) => (
+                      <option key={s.slug} value={s.slug}>
+                        {String(s.num).padStart(3, '0')} · {s.title?.[lang] || s.title?.es}
+                      </option>
+                    ))}
+                  </select>
+
+                  {threadChainLoading && (
+                    <div style={styles.hint}>{t.threadChainLoading}<span style={styles.blink}>◼</span></div>
+                  )}
+
+                  {threadError && <div style={styles.error}>{t.err} {threadError}</div>}
+
+                  {threadChain && threadChain.length > 0 && (
+                    <div style={styles.threadChain}>
+                      <div style={styles.label}>{t.threadChainTitle(threadChain.length)}</div>
+                      {threadChain.map((s) => (
+                        <div key={s.slug} style={styles.threadItem}>
+                          <div style={styles.threadItemHead}>{String(s.num).padStart(3, '0')} · {s.title?.[lang] || s.title?.es}</div>
+                          {s.excerpt?.[lang] || s.excerpt?.es ? (
+                            <div style={styles.threadItemBody}>{s.excerpt?.[lang] || s.excerpt?.es}</div>
+                          ) : null}
+                        </div>
+                      ))}
+
+                      {!threadSummary && (
+                        <button
+                          type="button"
+                          disabled={threadCompacting}
+                          onClick={async () => {
+                            setThreadError(null);
+                            setThreadCompacting(true);
+                            try {
+                              const r = await fetch(`/api/stories/${threadSlug}/compact-thread`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
+                              });
+                              if (r.status === 401) {
+                                logout();
+                                throw new Error(lang === 'es' ? 'Sesión expirada.' : 'Session expired.');
+                              }
+                              if (!r.ok) {
+                                const j = await r.json().catch(() => ({}));
+                                throw new Error(j.error || `HTTP ${r.status}`);
+                              }
+                              const data = await r.json();
+                              setThreadSummary(data);
+                            } catch (err) {
+                              setThreadError(err.message);
+                            } finally {
+                              setThreadCompacting(false);
+                            }
+                          }}
+                          style={{ ...styles.submit, alignSelf: 'flex-start', ...(threadCompacting ? styles.submitDisabled : {}) }}
+                        >
+                          {threadCompacting ? <>{t.threadCompacting}<span style={styles.blink}>◼</span></> : t.threadCompactBtn}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {threadSummary && (
+                    <div style={styles.threadSummaryBox}>
+                      <div style={styles.threadDoneLine}>{t.threadCompactDone(threadSummary)}</div>
+                      <div style={styles.threadInUse}>{t.threadInUse}</div>
+                      <div style={styles.threadSummaryText}>
+                        {lang === 'es' ? threadSummary.summaryEs : threadSummary.summaryEn}
+                      </div>
+                      {threadSummary.entities ? (
+                        <div style={styles.threadEntities}>
+                          <div style={styles.label}>{t.threadEntitiesLabel}</div>
+                          {['personajes', 'lugares', 'objetos', 'eventos'].map((k) => {
+                            const arr = threadSummary.entities[k];
+                            if (!Array.isArray(arr) || !arr.length) return null;
+                            return (
+                              <div key={k} style={styles.threadEntityLine}>
+                                <span style={styles.threadEntityKey}>{k.toUpperCase()}:</span> {arr.join(', ')}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => { setThreadSummary(null); setThreadChain(null); setThreadSlug(''); }}
+                        style={styles.threadClearBtn}
+                      >
+                        {t.threadClear}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </>
         )}
 
@@ -472,6 +612,20 @@ const styles = {
   blink: { animation: 'cfia-blink 1.1s steps(1) infinite' },
   error: { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: '0.08em', color: '#e8b84a', border: '1px solid #e8b84a', padding: 14, background: 'rgba(232,184,74,0.05)' },
   logoutBtn: { alignSelf: 'flex-start', marginTop: 12, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', background: 'transparent', border: '1px solid #3a3832', padding: '6px 12px', cursor: 'pointer' },
+  threadToggle: { alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a', background: 'transparent', border: '1px solid #3a3832', padding: '10px 14px', cursor: 'pointer' },
+  threadBox: { display: 'flex', flexDirection: 'column', gap: 14, border: '1px solid #3a3832', padding: 18, background: 'rgba(232,184,74,0.03)' },
+  threadChain: { display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px dashed #3a3832', paddingTop: 14 },
+  threadItem: { borderLeft: '2px solid #3a3832', paddingLeft: 10 },
+  threadItemHead: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.14em', color: '#e8b84a' },
+  threadItemBody: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#b8b5ad', marginTop: 4, lineHeight: 1.5 },
+  threadSummaryBox: { display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px dashed #3a3832', paddingTop: 14 },
+  threadDoneLine: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.14em', color: '#e8b84a' },
+  threadInUse: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#6b6860', textTransform: 'uppercase' },
+  threadSummaryText: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, color: '#f5f3ee', lineHeight: 1.55, whiteSpace: 'pre-wrap' },
+  threadEntities: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px dashed #3a3832', paddingTop: 10 },
+  threadEntityLine: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.08em', color: '#b8b5ad' },
+  threadEntityKey: { color: '#6b6860', marginRight: 6 },
+  threadClearBtn: { alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', background: 'transparent', border: '1px solid #3a3832', padding: '6px 12px', cursor: 'pointer' },
 };
 
 window.Create = Create;

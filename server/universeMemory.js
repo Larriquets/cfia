@@ -112,3 +112,155 @@ export async function updateUniverseMemory({ universeId, story }) {
 
   console.log(`[memory] updated universe=${universeId} (${summaryEs.split(/\s+/).length} words ES)`);
 }
+
+const COMPACT_TARGET_WORDS = 450;
+const COMPACT_MAX_ENTITIES = 15;
+
+const COMPACT_SYSTEM = `Sos un editor literario que comprime el "diario de universo" de ECHO-7, una colección de cuentos de ciencia ficción.
+
+Recibís el resumen acumulado actual (ES y EN) y las entidades recurrentes, y devolvés una versión MÁS CONDENSADA preservando lo esencial:
+
+- Resumen ≤ ${COMPACT_TARGET_WORDS} palabras por idioma. PRESERVÁ nombres propios (personajes, lugares, naves, objetos distintivos), eventos clave y vínculos entre cuentos. Cortá adjetivos, descripciones tonales redundantes y generalidades — pero nunca sacrifiques especificidad concreta.
+- Entidades: quedate con los ítems más relevantes/recurrentes. Máximo ${COMPACT_MAX_ENTITIES} por categoría. Preferí nombres específicos sobre etiquetas genéricas.
+- NO inventes nada nuevo. Solo condensar lo existente.
+
+Devolvés SIEMPRE un único objeto JSON válido, sin markdown:
+
+{
+  "summaryEs": "string (≤ ${COMPACT_TARGET_WORDS} palabras, español)",
+  "summaryEn": "string (≤ ${COMPACT_TARGET_WORDS} palabras, inglés)",
+  "entities": {
+    "personajes": ["string", "..."],
+    "lugares": ["string", "..."],
+    "objetos": ["string", "..."],
+    "eventos": ["string", "..."]
+  }
+}`;
+
+export async function compactUniverseMemory({ universeId }) {
+  if (!universeId) throw new Error('universeId required');
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
+
+  const memory = await prisma.universeMemory.findUnique({ where: { universeId } });
+  if (!memory) throw new Error('no memory to compact');
+
+  const prevEntities = parseEntities(memory.entities);
+  const entitiesJson = JSON.stringify(prevEntities);
+  const beforeChars = (memory.summaryEs || '').length + (memory.summaryEn || '').length + entitiesJson.length;
+
+  const userPrompt = [
+    `RESUMEN ACTUAL (ES):\n${memory.summaryEs || '[vacío]'}`,
+    `\nRESUMEN ACTUAL (EN):\n${memory.summaryEn || '[empty]'}`,
+    `\nENTIDADES ACTUALES:\n${entitiesJson}`,
+    `\nDevolvé una versión condensada (SOLO JSON).`,
+  ].join('\n');
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const resp = await ai.models.generateContent({
+    model: MEMORY_MODEL,
+    contents: userPrompt,
+    config: {
+      systemInstruction: COMPACT_SYSTEM,
+      temperature: 0.3,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  const text = resp?.text || resp?.candidates?.[0]?.content?.parts?.map((p) => p?.text || '').join('') || '';
+  if (!text.trim()) throw new Error('empty compact response');
+
+  const parsed = extractJson(text);
+  const summaryEs = truncateWords(String(parsed.summaryEs || '').trim(), COMPACT_TARGET_WORDS);
+  const summaryEn = truncateWords(String(parsed.summaryEn || '').trim(), COMPACT_TARGET_WORDS);
+  const entities = parseEntities(parsed.entities);
+  const newEntitiesJson = JSON.stringify(entities);
+  const afterChars = summaryEs.length + summaryEn.length + newEntitiesJson.length;
+
+  await prisma.universeMemory.update({
+    where: { universeId },
+    data: { summaryEs, summaryEn, entities: newEntitiesJson },
+  });
+
+  const ratio = beforeChars > 0 ? Math.round((afterChars / beforeChars) * 100) : 0;
+  console.log(`[compact] universe=${universeId} before=${beforeChars} after=${afterChars} ratio=${ratio}%`);
+
+  return { beforeChars, afterChars, ratio };
+}
+
+const THREAD_SYSTEM = `Sos un editor literario que condensa un HILO específico de cuentos de ciencia ficción escritos por ECHO-7 (varios cuentos que comparten una cadena de expansión: uno deriva del anterior).
+
+Recibís una cadena ordenada de cuentos (del más antiguo al más reciente) y devolvés un resumen denso que captura:
+- El arco narrativo concreto del hilo: qué pasa, en qué orden, qué se transforma
+- Personajes, lugares, objetos y eventos recurrentes del hilo (con sus nombres propios intactos)
+- El tono y las obsesiones específicas del hilo
+- Caminos ya tomados (para que un cuento nuevo que derive del hilo pueda continuar sin repetir)
+
+REGLAS:
+- Resumen ≤ 500 palabras por idioma.
+- PRESERVÁ todos los nombres propios (personajes, lugares, naves, objetos distintivos).
+- NO inventes. Solo condensá lo dado.
+- Entidades: arrays de nombres específicos del hilo, máx 15 por categoría.
+
+Devolvés SIEMPRE un único objeto JSON válido, sin markdown:
+
+{
+  "summaryEs": "string (≤ 500 palabras, español)",
+  "summaryEn": "string (≤ 500 palabras, inglés)",
+  "entities": {
+    "personajes": ["string", "..."],
+    "lugares": ["string", "..."],
+    "objetos": ["string", "..."],
+    "eventos": ["string", "..."]
+  }
+}`;
+
+export async function compactThread({ stories }) {
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
+  if (!Array.isArray(stories) || !stories.length) throw new Error('empty thread');
+
+  const chain = stories
+    .map((s, i) => {
+      const body = Array.isArray(s.bodyEs) ? s.bodyEs.join('\n\n') : (s.bodyEs || s.excerptEs || '');
+      return `--- CUENTO ${i + 1} / ${stories.length} [#${String(s.num).padStart(3, '0')}] ---
+Título: ${s.titleEs} / ${s.titleEn}
+Tags: ${(s.tags || []).join(', ')}
+
+${body}`;
+    })
+    .join('\n\n');
+
+  const userPrompt = `HILO DE ${stories.length} CUENTOS (del más antiguo al más reciente):
+
+${chain}
+
+Condensá el hilo completo. Devolvé SOLO JSON.`;
+
+  const beforeChars = chain.length;
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const resp = await ai.models.generateContent({
+    model: MEMORY_MODEL,
+    contents: userPrompt,
+    config: {
+      systemInstruction: THREAD_SYSTEM,
+      temperature: 0.3,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  const text = resp?.text || resp?.candidates?.[0]?.content?.parts?.map((p) => p?.text || '').join('') || '';
+  if (!text.trim()) throw new Error('empty thread compact response');
+
+  const parsed = extractJson(text);
+  const summaryEs = truncateWords(String(parsed.summaryEs || '').trim(), 500);
+  const summaryEn = truncateWords(String(parsed.summaryEn || '').trim(), 500);
+  const entities = parseEntities(parsed.entities);
+  const afterChars = summaryEs.length + summaryEn.length + JSON.stringify(entities).length;
+  const ratio = beforeChars > 0 ? Math.round((afterChars / beforeChars) * 100) : 0;
+
+  console.log(`[compact-thread] stories=${stories.length} before=${beforeChars} after=${afterChars} ratio=${ratio}%`);
+
+  return { summaryEs, summaryEn, entities, beforeChars, afterChars, ratio, nodeCount: stories.length };
+}

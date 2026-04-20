@@ -9,7 +9,7 @@ import { generateStoryGemini } from './generateGemini.js';
 import { findOverusedWords } from './titleGuard.js';
 import { pickCreativityKnobs } from './creativityKnobs.js';
 import { loadDefaultContext, buildContextBlock } from './universeContext.js';
-import { updateUniverseMemory } from './universeMemory.js';
+import { updateUniverseMemory, compactUniverseMemory, compactThread } from './universeMemory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -218,6 +218,82 @@ app.get('/api/universe', async (_req, res) => {
   });
 });
 
+app.post('/api/universe/compact', requireCreatePassword, async (_req, res) => {
+  try {
+    const universe = await prisma.universe.findUnique({ where: { slug: 'tau-ceti-drift' } });
+    if (!universe) return res.status(404).json({ error: 'universe not found' });
+    const result = await compactUniverseMemory({ universeId: universe.id });
+    res.json(result);
+  } catch (e) {
+    console.error('compact error:', e);
+    res.status(500).json({ error: e.message || 'compact failed' });
+  }
+});
+
+async function collectThreadFromLeaf(slug) {
+  const leaf = await prisma.story.findUnique({
+    where: { slug },
+    include: { tags: true },
+  });
+  if (!leaf) return [];
+  const chain = [leaf];
+  let cursor = leaf;
+  let depth = 0;
+  while (cursor.parentId && depth < 20) {
+    cursor = await prisma.story.findUnique({
+      where: { id: cursor.parentId },
+      include: { tags: true },
+    });
+    if (!cursor) break;
+    chain.unshift(cursor);
+    depth += 1;
+  }
+  return chain;
+}
+
+app.get('/api/stories/:slug/thread', async (req, res) => {
+  try {
+    const chain = await collectThreadFromLeaf(req.params.slug);
+    if (!chain.length) return res.status(404).json({ error: 'not found' });
+    res.json({
+      stories: chain.map((s) => ({
+        slug: s.slug,
+        num: s.num,
+        title: { es: s.titleEs, en: s.titleEn },
+        excerpt: { es: s.excerptEs, en: s.excerptEn },
+        tags: s.tags.map((t) => t.name),
+      })),
+    });
+  } catch (e) {
+    console.error('thread error:', e);
+    res.status(500).json({ error: e.message || 'thread failed' });
+  }
+});
+
+app.post('/api/stories/:slug/compact-thread', requireCreatePassword, async (req, res) => {
+  try {
+    const chain = await collectThreadFromLeaf(req.params.slug);
+    if (!chain.length) return res.status(404).json({ error: 'not found' });
+    if (chain.length < 2) return res.status(400).json({ error: 'thread must have at least 2 stories' });
+
+    const stories = chain.map((s) => ({
+      slug: s.slug,
+      num: s.num,
+      titleEs: s.titleEs,
+      titleEn: s.titleEn,
+      excerptEs: s.excerptEs,
+      tags: s.tags.map((t) => t.name),
+      bodyEs: s.bodyEs,
+    }));
+
+    const result = await compactThread({ stories });
+    res.json(result);
+  } catch (e) {
+    console.error('compact-thread error:', e);
+    res.status(500).json({ error: e.message || 'compact-thread failed' });
+  }
+});
+
 async function uniqueSlug(base, num) {
   let slug = base || `cuento-${num}`;
   let i = 1;
@@ -275,6 +351,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       prompt = '',
       length = 'medium',
       form = null,
+      threadBase = null,
     } = req.body || {};
 
     const wantClaude = provider === 'anthropic' || provider === 'both';
@@ -301,6 +378,31 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     const ctx = await loadDefaultContext();
     const contextBlock = buildContextBlock({ author: ctx.author, universe: ctx.universe, lang: 'es' });
 
+    let threadBaseBlock = '';
+    if (threadBase && (threadBase.summaryEs || threadBase.summaryEn)) {
+      const tbSummary = (threadBase.summaryEs || threadBase.summaryEn).trim();
+      const tbEntities = threadBase.entities && typeof threadBase.entities === 'object' ? threadBase.entities : null;
+      const entLines = [];
+      if (tbEntities) {
+        if (Array.isArray(tbEntities.personajes) && tbEntities.personajes.length) entLines.push(`Personajes: ${tbEntities.personajes.join(', ')}`);
+        if (Array.isArray(tbEntities.lugares) && tbEntities.lugares.length) entLines.push(`Lugares: ${tbEntities.lugares.join(', ')}`);
+        if (Array.isArray(tbEntities.objetos) && tbEntities.objetos.length) entLines.push(`Objetos: ${tbEntities.objetos.join(', ')}`);
+        if (Array.isArray(tbEntities.eventos) && tbEntities.eventos.length) entLines.push(`Eventos: ${tbEntities.eventos.join(', ')}`);
+      }
+      threadBaseBlock = `
+BASE DE HILO PREVIO
+===================
+El siguiente cuento debe nacer como RAMA nueva (no como continuación directa) de un hilo previo condensado:
+
+${tbSummary}
+${entLines.length ? '\nENTIDADES DEL HILO:\n' + entLines.join('\n') : ''}
+
+Usalo como sustrato tonal y mundo-referencia. Podés traer personajes, lugares o ecos del hilo, pero el cuento nuevo tiene su propia entrada y su propio cierre — no es capítulo siguiente, es una derivación.
+===================
+`;
+      console.log(`[generate] using threadBase summary (${tbSummary.length} chars)`);
+    }
+
     const formId = form && form !== 'random' ? form : null;
     const claudeKnobs = wantClaude ? pickCreativityKnobs({ formId }) : null;
     let geminiKnobs = wantGemini ? pickCreativityKnobs({ formId }) : null;
@@ -323,7 +425,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       tasks.push({
         provider: 'claude',
         promise: withTimeout(
-          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs, contextBlock }),
+          generateStory({ tags, model: claudeModel, temp, prompt, length, recentTitles, overusedWords, knobs: claudeKnobs, contextBlock, extraUser: threadBaseBlock }),
           GEN_TIMEOUT_MS, 'claude'
         ).then((gen) => {
           console.log(`[generate] claude done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -335,7 +437,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       tasks.push({
         provider: 'gemini',
         promise: withTimeout(
-          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs, contextBlock }),
+          generateStoryGemini({ tags, model: geminiModel, temp, prompt, length, recentTitles, overusedWords, knobs: geminiKnobs, contextBlock, extraUser: threadBaseBlock }),
           GEN_TIMEOUT_MS, 'gemini'
         ).then((gen) => {
           console.log(`[generate] gemini done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
