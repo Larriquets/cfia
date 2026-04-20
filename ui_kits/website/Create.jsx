@@ -69,13 +69,21 @@ function Create({ lang, onCreated, stories = [] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [threadSlug, setThreadSlug] = useState('');
-  const [threadChain, setThreadChain] = useState(null);
-  const [threadChainLoading, setThreadChainLoading] = useState(false);
-  const [threadSummary, setThreadSummary] = useState(null);
-  const [threadCompacting, setThreadCompacting] = useState(false);
-  const [threadError, setThreadError] = useState(null);
-  const [threadOpen, setThreadOpen] = useState(false);
+  const [universeList, setUniverseList] = useState(null);
+  const [universeListError, setUniverseListError] = useState(null);
+  const [universeSlug, setUniverseSlug] = useState('');
+  const [universeSummary, setUniverseSummary] = useState(null);
+  const [universeCompacting, setUniverseCompacting] = useState(false);
+  const [universeError, setUniverseError] = useState(null);
+  const [universeOpen, setUniverseOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (!universeOpen || universeList !== null) return;
+    fetch('/api/universes')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((j) => setUniverseList(j.universes || []))
+      .catch((e) => setUniverseListError(e.message));
+  }, [universeOpen, universeList]);
 
   const [auth, setAuth] = useState(() => {
     try { return localStorage.getItem(AUTH_KEY) || ''; } catch { return ''; }
@@ -113,8 +121,8 @@ function Create({ lang, onCreated, stories = [] }) {
   };
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', subtitleExpand: 'ECHO-7 escribe un nuevo cuento que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, expandFormLabel: 'FORMA NARRATIVA', expandFormHint: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.', inheritOpt: 'HEREDAR DEL PADRE', parentFormTag: 'FORMA DEL PADRE', parentFormUnknown: 'desconocida', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7', ctxToggleHide: '▾ OCULTAR CONTEXTO', ctxLoading: 'CARGANDO CONTEXTO · ', ctxAncestors: 'CADENA DE ANCESTROS', ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.', ctxParent: 'CUERPO DEL PADRE (entra completo)', ctxUniverse: 'MEMORIA DEL UNIVERSO', ctxEntities: 'ENTIDADES RECURRENTES', ctxAuthor: 'AUTOR', ctxStats: 'TOTAL', ctxChars: 'caracteres', ctxWarn: 'La memoria del universo creció mucho. Compactarla condensa el resumen y las entidades sin perder lo esencial (usa Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACTAR MEMORIA', ctxCompacting: 'COMPACTANDO · ', ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Ingresá por CREAR para poder compactar.', umToggleShow: '▸ VER MEMORIA DEL UNIVERSO', umToggleHide: '▾ OCULTAR MEMORIA', threadToggleShow: '▸ USAR UN HILO COMO BASE', threadToggleHide: '▾ OCULTAR HILO BASE', threadPickLabel: 'ELEGIR CUENTO HOJA (HILO)', threadPickPh: '— Elegí un cuento con ancestros —', threadSubUniverseHint: 'Un hilo de 3+ cuentos ya es un sub-universo — marcado con ◼', threadChainTitle: (n) => `CADENA DE ${n} CUENTOS`, threadChainLoading: 'CARGANDO HILO · ', threadCompactBtn: '◼ COMPACTAR ESTE HILO', threadCompacting: 'COMPACTANDO HILO · ', threadCompactDone: (r) => `HILO CONDENSADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} cuentos`, threadInUse: 'RESUMEN DE HILO EN USO — el cuento nuevo nacerá como rama de este hilo.', threadClear: 'LIMPIAR HILO BASE', threadEntitiesLabel: 'ENTIDADES DEL HILO', expanding: 'GENERANDO · ', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
-    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'The AI generates the full story. You set the tone.', subtitleExpand: 'ECHO-7 writes a new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, expandFormLabel: 'NARRATIVE FORM', expandFormHint: 'INHERIT reuses the parent form. Pick another to contrast.', inheritOpt: 'INHERIT FROM PARENT', parentFormTag: 'PARENT FORM', parentFormUnknown: 'unknown', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7', ctxToggleHide: '▾ HIDE CONTEXT', ctxLoading: 'LOADING CONTEXT · ', ctxAncestors: 'ANCESTOR CHAIN', ctxAncestorsEmpty: 'This story has no ancestors — it is a root.', ctxParent: 'PARENT BODY (sent in full)', ctxUniverse: 'UNIVERSE MEMORY', ctxEntities: 'RECURRING ENTITIES', ctxAuthor: 'AUTHOR', ctxStats: 'TOTAL', ctxChars: 'characters', ctxWarn: 'Universe memory has grown large. Compacting condenses summary and entities while keeping the essentials (uses Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACT MEMORY', ctxCompacting: 'COMPACTING · ', ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Enter through CREATE to compact.', umToggleShow: '▸ SHOW UNIVERSE MEMORY', umToggleHide: '▾ HIDE MEMORY', threadToggleShow: '▸ USE A THREAD AS BASE', threadToggleHide: '▾ HIDE THREAD BASE', threadPickLabel: 'PICK LEAF STORY (THREAD)', threadPickPh: '— Choose a story with ancestors —', threadSubUniverseHint: 'A thread of 3+ stories is already a sub-universe — marked with ◼', threadChainTitle: (n) => `CHAIN OF ${n} STORIES`, threadChainLoading: 'LOADING THREAD · ', threadCompactBtn: '◼ COMPACT THIS THREAD', threadCompacting: 'COMPACTING THREAD · ', threadCompactDone: (r) => `THREAD CONDENSED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} stories`, threadInUse: 'THREAD SUMMARY IN USE — the new story will branch from this thread.', threadClear: 'CLEAR THREAD BASE', threadEntitiesLabel: 'THREAD ENTITIES', expanding: 'GENERATING · ', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', subtitleExpand: 'ECHO-7 escribe un nuevo cuento que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, expandFormLabel: 'FORMA NARRATIVA', expandFormHint: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.', inheritOpt: 'HEREDAR DEL PADRE', parentFormTag: 'FORMA DEL PADRE', parentFormUnknown: 'desconocida', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7', ctxToggleHide: '▾ OCULTAR CONTEXTO', ctxLoading: 'CARGANDO CONTEXTO · ', ctxAncestors: 'CADENA DE ANCESTROS', ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.', ctxParent: 'CUERPO DEL PADRE (entra completo)', ctxUniverse: 'MEMORIA DEL UNIVERSO', ctxEntities: 'ENTIDADES RECURRENTES', ctxAuthor: 'AUTOR', ctxStats: 'TOTAL', ctxChars: 'caracteres', ctxWarn: 'La memoria del universo creció mucho. Compactarla condensa el resumen y las entidades sin perder lo esencial (usa Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACTAR MEMORIA', ctxCompacting: 'COMPACTANDO · ', ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Ingresá por CREAR para poder compactar.', umToggleShow: '▸ VER MEMORIA DEL UNIVERSO', umToggleHide: '▾ OCULTAR MEMORIA', universeToggleShow: '▸ USAR UN UNIVERSO COMO BASE', universeToggleHide: '▾ OCULTAR UNIVERSO BASE', universePickLabel: 'ELEGIR UNIVERSO', universePickPh: '— Elegí un universo —', universeListLoading: 'CARGANDO UNIVERSOS · ', universeEmpty: 'Todavía no hay universos (ningún árbol con 3+ cuentos).', universeHint: 'Un universo es un árbol de 3+ cuentos. Compactarlo condensa todo el árbol (raíz + ramas) en un resumen único para que ECHO-7 nazca como rama nueva del universo.', universeTreeTitle: (n) => `ÁRBOL DE ${n} CUENTOS`, universeCompactBtn: '◼ COMPACTAR ESTE UNIVERSO', universeCompacting: 'COMPACTANDO UNIVERSO · ', universeCompactDone: (r) => `UNIVERSO CONDENSADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} cuentos`, universeInUse: 'RESUMEN DE UNIVERSO EN USO — el cuento nuevo nacerá como rama de este universo.', universeClear: 'LIMPIAR UNIVERSO BASE', universeEntitiesLabel: 'ENTIDADES DEL UNIVERSO', expanding: 'GENERANDO · ', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
+    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'The AI generates the full story. You set the tone.', subtitleExpand: 'ECHO-7 writes a new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, expandFormLabel: 'NARRATIVE FORM', expandFormHint: 'INHERIT reuses the parent form. Pick another to contrast.', inheritOpt: 'INHERIT FROM PARENT', parentFormTag: 'PARENT FORM', parentFormUnknown: 'unknown', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7', ctxToggleHide: '▾ HIDE CONTEXT', ctxLoading: 'LOADING CONTEXT · ', ctxAncestors: 'ANCESTOR CHAIN', ctxAncestorsEmpty: 'This story has no ancestors — it is a root.', ctxParent: 'PARENT BODY (sent in full)', ctxUniverse: 'UNIVERSE MEMORY', ctxEntities: 'RECURRING ENTITIES', ctxAuthor: 'AUTHOR', ctxStats: 'TOTAL', ctxChars: 'characters', ctxWarn: 'Universe memory has grown large. Compacting condenses summary and entities while keeping the essentials (uses Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACT MEMORY', ctxCompacting: 'COMPACTING · ', ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Enter through CREATE to compact.', umToggleShow: '▸ SHOW UNIVERSE MEMORY', umToggleHide: '▾ HIDE MEMORY', universeToggleShow: '▸ USE A UNIVERSE AS BASE', universeToggleHide: '▾ HIDE UNIVERSE BASE', universePickLabel: 'PICK UNIVERSE', universePickPh: '— Choose a universe —', universeListLoading: 'LOADING UNIVERSES · ', universeEmpty: 'No universes yet (no tree with 3+ stories).', universeHint: 'A universe is a tree of 3+ stories. Compacting condenses the whole tree (root + branches) into one summary so ECHO-7 can be born as a new branch.', universeTreeTitle: (n) => `TREE OF ${n} STORIES`, universeCompactBtn: '◼ COMPACT THIS UNIVERSE', universeCompacting: 'COMPACTING UNIVERSE · ', universeCompactDone: (r) => `UNIVERSE CONDENSED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} stories`, universeInUse: 'UNIVERSE SUMMARY IN USE — the new story will branch from this universe.', universeClear: 'CLEAR UNIVERSE BASE', universeEntitiesLabel: 'UNIVERSE ENTITIES', expanding: 'GENERATING · ', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
 
   const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
   const isBoth = provider === 'both';
@@ -156,7 +164,7 @@ function Create({ lang, onCreated, stories = [] }) {
         ? { provider: provider === 'both' ? 'anthropic' : provider, model: provider === 'both' ? undefined : model, temp, angle, form: expandForm, prompt, length }
         : {
             tags, provider, model, temp, prompt, length, form,
-            ...(threadSummary ? { threadBase: { summaryEs: threadSummary.summaryEs, summaryEn: threadSummary.summaryEn, entities: threadSummary.entities } } : {}),
+            ...(universeSummary ? { threadBase: { summaryEs: universeSummary.summaryEs, summaryEn: universeSummary.summaryEn, entities: universeSummary.entities } } : {}),
           };
       const r = await fetch(url, {
         method: 'POST',
@@ -405,84 +413,57 @@ function Create({ lang, onCreated, stories = [] }) {
             ) : null}
 
             <div style={styles.field}>
-              <button type="button" onClick={() => setThreadOpen((v) => !v)} style={styles.threadToggle}>
-                {threadOpen ? t.threadToggleHide : t.threadToggleShow}
+              <button type="button" onClick={() => setUniverseOpen((v) => !v)} style={styles.threadToggle}>
+                {universeOpen ? t.universeToggleHide : t.universeToggleShow}
               </button>
-              {threadOpen ? (
+              {universeOpen ? (
                 <div style={styles.threadBox}>
-                  <label style={styles.label}>{t.threadPickLabel}</label>
-                  <select
-                    style={styles.select}
-                    value={threadSlug}
-                    onChange={async (e) => {
-                      const slug = e.target.value;
-                      setThreadSlug(slug);
-                      setThreadChain(null);
-                      setThreadError(null);
-                      if (!slug) return;
-                      setThreadChainLoading(true);
-                      try {
-                        const r = await fetch(`/api/stories/${slug}/thread`);
-                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                        const data = await r.json();
-                        setThreadChain(data.stories || []);
-                      } catch (err) {
-                        setThreadError(err.message);
-                      } finally {
-                        setThreadChainLoading(false);
-                      }
-                    }}
-                  >
-                    <option value="">{t.threadPickPh}</option>
-                    {(() => {
-                      const bySlug = new Map(stories.map((s) => [s.slug, s]));
-                      const chainLen = (s) => {
-                        let n = 1; let cur = s;
-                        while (cur?.parentSlug && bySlug.has(cur.parentSlug)) { n++; cur = bySlug.get(cur.parentSlug); if (n > 40) break; }
-                        return n;
-                      };
-                      return sortedStories.filter((s) => s.parentSlug).map((s) => {
-                        const len = chainLen(s);
-                        const isUniverse = len >= 3;
-                        const suffix = isUniverse ? ` · ${len} ${lang === 'es' ? 'cuentos · ◼ sub-universo' : 'stories · ◼ sub-universe'}` : ` · ${len}`;
-                        return (
-                          <option key={s.slug} value={s.slug}>
-                            {String(s.num).padStart(3, '0')} · {s.title?.[lang] || s.title?.es}{suffix}
-                          </option>
-                        );
-                      });
-                    })()}
-                  </select>
-
-                  <div style={styles.hint}>{t.threadSubUniverseHint}</div>
-
-                  {threadChainLoading && (
-                    <div style={styles.hint}>{t.threadChainLoading}<span style={styles.blink}>◼</span></div>
+                  <label style={styles.label}>{t.universePickLabel}</label>
+                  {universeListError && <div style={styles.error}>{t.err} {universeListError}</div>}
+                  {!universeList && !universeListError && (
+                    <div style={styles.hint}>{t.universeListLoading}<span style={styles.blink}>◼</span></div>
+                  )}
+                  {universeList && universeList.length === 0 && (
+                    <div style={styles.hint}>{t.universeEmpty}</div>
+                  )}
+                  {universeList && universeList.length > 0 && (
+                    <select
+                      style={styles.select}
+                      value={universeSlug}
+                      onChange={(e) => {
+                        setUniverseSlug(e.target.value);
+                        setUniverseSummary(null);
+                        setUniverseError(null);
+                      }}
+                    >
+                      <option value="">{t.universePickPh}</option>
+                      {universeList.map((u) => (
+                        <option key={u.root.slug} value={u.root.slug}>
+                          {u.root.title?.[lang] || u.root.title?.es} · {u.total} {lang === 'es' ? 'cuentos' : 'stories'}
+                        </option>
+                      ))}
+                    </select>
                   )}
 
-                  {threadError && <div style={styles.error}>{t.err} {threadError}</div>}
+                  <div style={styles.hint}>{t.universeHint}</div>
 
-                  {threadChain && threadChain.length > 0 && (
-                    <div style={styles.threadChain}>
-                      <div style={styles.label}>{t.threadChainTitle(threadChain.length)}</div>
-                      {threadChain.map((s) => (
-                        <div key={s.slug} style={styles.threadItem}>
-                          <div style={styles.threadItemHead}>{String(s.num).padStart(3, '0')} · {s.title?.[lang] || s.title?.es}</div>
-                          {s.excerpt?.[lang] || s.excerpt?.es ? (
-                            <div style={styles.threadItemBody}>{s.excerpt?.[lang] || s.excerpt?.es}</div>
-                          ) : null}
-                        </div>
-                      ))}
+                  {universeError && <div style={styles.error}>{t.err} {universeError}</div>}
 
-                      {!threadSummary && (
+                  {universeSlug && !universeSummary && (() => {
+                    const picked = universeList?.find((u) => u.root.slug === universeSlug);
+                    if (!picked) return null;
+                    return (
+                      <div style={styles.threadChain}>
+                        <div style={styles.label}>{t.universeTreeTitle(picked.total)}</div>
+                        <UniverseTreePreview root={picked.root} lang={lang} />
                         <button
                           type="button"
-                          disabled={threadCompacting}
+                          disabled={universeCompacting}
                           onClick={async () => {
-                            setThreadError(null);
-                            setThreadCompacting(true);
+                            setUniverseError(null);
+                            setUniverseCompacting(true);
                             try {
-                              const r = await fetch(`/api/stories/${threadSlug}/compact-thread`, {
+                              const r = await fetch(`/api/universes/${universeSlug}/compact`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
                               });
@@ -495,33 +476,33 @@ function Create({ lang, onCreated, stories = [] }) {
                                 throw new Error(j.error || `HTTP ${r.status}`);
                               }
                               const data = await r.json();
-                              setThreadSummary(data);
+                              setUniverseSummary(data);
                             } catch (err) {
-                              setThreadError(err.message);
+                              setUniverseError(err.message);
                             } finally {
-                              setThreadCompacting(false);
+                              setUniverseCompacting(false);
                             }
                           }}
-                          style={{ ...styles.submit, alignSelf: 'flex-start', ...(threadCompacting ? styles.submitDisabled : {}) }}
+                          style={{ ...styles.submit, alignSelf: 'flex-start', ...(universeCompacting ? styles.submitDisabled : {}) }}
                         >
-                          {threadCompacting ? <>{t.threadCompacting}<span style={styles.blink}>◼</span></> : t.threadCompactBtn}
+                          {universeCompacting ? <>{t.universeCompacting}<span style={styles.blink}>◼</span></> : t.universeCompactBtn}
                         </button>
-                      )}
-                    </div>
-                  )}
-
-                  {threadSummary && (
-                    <div style={styles.threadSummaryBox}>
-                      <div style={styles.threadDoneLine}>{t.threadCompactDone(threadSummary)}</div>
-                      <div style={styles.threadInUse}>{t.threadInUse}</div>
-                      <div style={styles.threadSummaryText}>
-                        {lang === 'es' ? threadSummary.summaryEs : threadSummary.summaryEn}
                       </div>
-                      {threadSummary.entities ? (
+                    );
+                  })()}
+
+                  {universeSummary && (
+                    <div style={styles.threadSummaryBox}>
+                      <div style={styles.threadDoneLine}>{t.universeCompactDone(universeSummary)}</div>
+                      <div style={styles.threadInUse}>{t.universeInUse}</div>
+                      <div style={styles.threadSummaryText}>
+                        {lang === 'es' ? universeSummary.summaryEs : universeSummary.summaryEn}
+                      </div>
+                      {universeSummary.entities ? (
                         <div style={styles.threadEntities}>
-                          <div style={styles.label}>{t.threadEntitiesLabel}</div>
+                          <div style={styles.label}>{t.universeEntitiesLabel}</div>
                           {['personajes', 'lugares', 'objetos', 'eventos'].map((k) => {
-                            const arr = threadSummary.entities[k];
+                            const arr = universeSummary.entities[k];
                             if (!Array.isArray(arr) || !arr.length) return null;
                             return (
                               <div key={k} style={styles.threadEntityLine}>
@@ -533,10 +514,10 @@ function Create({ lang, onCreated, stories = [] }) {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => { setThreadSummary(null); setThreadChain(null); setThreadSlug(''); }}
+                        onClick={() => { setUniverseSummary(null); setUniverseSlug(''); }}
                         style={styles.threadClearBtn}
                       >
-                        {t.threadClear}
+                        {t.universeClear}
                       </button>
                     </div>
                   )}
@@ -641,6 +622,35 @@ const styles = {
   threadEntityLine: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.08em', color: '#b8b5ad' },
   threadEntityKey: { color: '#6b6860', marginRight: 6 },
   threadClearBtn: { alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', background: 'transparent', border: '1px solid #3a3832', padding: '6px 12px', cursor: 'pointer' },
+  universePreview: { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#f5f3ee', lineHeight: 1.8, overflowX: 'auto', padding: '8px 0' },
+  universePreviewLine: { display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' },
+  universePreviewGlyph: { color: '#6b6860', whiteSpace: 'pre' },
+  universePreviewNum: { color: '#e8b84a', letterSpacing: '0.12em' },
+  universePreviewDot: { color: '#3a3832' },
+  universePreviewTitle: { color: '#f5f3ee', fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, letterSpacing: '-0.01em' },
 };
+
+function UniverseTreePreview({ root, lang }) {
+  const renderNode = (node, prefix, isLast, isRoot) => {
+    const connector = isRoot ? '' : (isLast ? '└─ ' : '├─ ');
+    const childPrefix = isRoot ? '' : (prefix + (isLast ? '   ' : '│  '));
+    const title = node.title?.[lang] || node.title?.es;
+    const lines = [(
+      <div key={node.slug} style={styles.universePreviewLine}>
+        <span style={styles.universePreviewGlyph}>{prefix}{connector}</span>
+        <span style={styles.universePreviewNum}>{String(node.num).padStart(3, '0')}</span>
+        <span style={styles.universePreviewDot}>·</span>
+        <span style={styles.universePreviewTitle}>{title}</span>
+      </div>
+    )];
+    if (node.children && node.children.length) {
+      node.children.forEach((c, i) => {
+        lines.push(...renderNode(c, childPrefix, i === node.children.length - 1, false));
+      });
+    }
+    return lines;
+  };
+  return <div style={styles.universePreview}>{renderNode(root, '', true, true)}</div>;
+}
 
 window.Create = Create;

@@ -317,6 +317,52 @@ app.get('/api/universes', async (_req, res) => {
   }
 });
 
+app.post('/api/universes/:slug/compact', requireCreatePassword, async (req, res) => {
+  try {
+    const root = await prisma.story.findUnique({ where: { slug: req.params.slug } });
+    if (!root) return res.status(404).json({ error: 'not found' });
+
+    const all = await prisma.story.findMany({
+      orderBy: { num: 'asc' },
+      include: { tags: true },
+    });
+    const byId = new Map(all.map((s) => [s.id, s]));
+    const childrenOf = new Map();
+    for (const s of all) {
+      if (s.parentId) {
+        if (!childrenOf.has(s.parentId)) childrenOf.set(s.parentId, []);
+        childrenOf.get(s.parentId).push(s);
+      }
+    }
+
+    const flat = [];
+    const walk = (node) => {
+      flat.push(node);
+      const kids = (childrenOf.get(node.id) || []).slice().sort((a, b) => a.num - b.num);
+      for (const k of kids) walk(k);
+    };
+    walk(byId.get(root.id));
+
+    if (flat.length < 3) return res.status(400).json({ error: 'universe must have at least 3 stories' });
+
+    const stories = flat.map((s) => ({
+      slug: s.slug,
+      num: s.num,
+      titleEs: s.titleEs,
+      titleEn: s.titleEn,
+      excerptEs: s.excerptEs,
+      tags: s.tags.map((t) => t.name),
+      bodyEs: s.bodyEs,
+    }));
+
+    const result = await compactThread({ stories });
+    res.json({ ...result, rootSlug: root.slug, rootTitle: { es: root.titleEs, en: root.titleEn } });
+  } catch (e) {
+    console.error('compact-universe error:', e);
+    res.status(500).json({ error: e.message || 'compact-universe failed' });
+  }
+});
+
 app.post('/api/stories/:slug/compact-thread', requireCreatePassword, async (req, res) => {
   try {
     const chain = await collectThreadFromLeaf(req.params.slug);
