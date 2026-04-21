@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 function Reader({ story, lang, onBack, onOpen, onCreated }) {
   const { LikeButton } = window;
@@ -50,6 +50,12 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         ctxCompacting: 'COMPACTANDO · ',
         ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`,
         ctxCompactAuth: 'Ingresá por CREAR para poder compactar.',
+        coParentsLabel: 'CUENTOS CO-PADRES (OPCIONAL)',
+        coParentsHint: 'Elegí hasta 6 cuentos del mismo universo. El nuevo cuento también heredará de ellos — se dibujarán como ramas extra en el diagrama.',
+        coParentsNone: 'No hay otros cuentos en este universo.',
+        coParentsNoUniverse: 'Este cuento no pertenece a un universo — los co-padres solo se permiten dentro del mismo universo.',
+        coParentsSelected: (n) => `${n} seleccionado${n === 1 ? '' : 's'}`,
+        coParentsClear: 'LIMPIAR',
         expandBtn: '▸ EXPANDIR',
         expanding: 'GENERANDO · ',
         lockedHint: 'Acceso restringido. Entrá por CREAR.',
@@ -90,6 +96,12 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         ctxCompacting: 'COMPACTING · ',
         ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`,
         ctxCompactAuth: 'Enter through CREATE to compact.',
+        coParentsLabel: 'CO-PARENT STORIES (OPTIONAL)',
+        coParentsHint: 'Pick up to 6 stories from the same universe. The new story will also inherit from them — drawn as extra branches in the map.',
+        coParentsNone: 'No other stories in this universe.',
+        coParentsNoUniverse: 'This story has no universe — co-parents are only allowed within the same universe.',
+        coParentsSelected: (n) => `${n} selected`,
+        coParentsClear: 'CLEAR',
         expandBtn: '▸ EXPAND',
         expanding: 'GENERATING · ',
         lockedHint: 'Restricted. Enter through CREATE.',
@@ -230,7 +242,7 @@ function StoryUniverseMap({ story, lang, onOpen }) {
         </div>
         <div style={universeMapStyles.hint}>{hint}</div>
         <div style={universeMapStyles.canvas}>
-          <UniverseCosmos root={tree.root} lang={lang} onOpen={onOpen} currentSlug={story.slug} />
+          <UniverseCosmos root={tree.root} lang={lang} onOpen={onOpen} currentSlug={story.slug} coParents={tree.coParents || []} />
         </div>
       </section>
     </>
@@ -314,6 +326,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [extraParentSlugs, setExtraParentSlugs] = useState([]);
 
   const parentForm = story.form;
   const parentFormDef = parentForm ? FORMS.find((f) => f.id === parentForm) : null;
@@ -338,7 +351,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
       const r = await fetch(`/api/stories/${story.slug}/expand`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
-        body: JSON.stringify({ angle, form, prompt, length, provider: 'anthropic', temp: 0.9 }),
+        body: JSON.stringify({ angle, form, prompt, length, provider: 'anthropic', temp: 0.9, extraParentSlugs }),
       });
       if (r.status === 401) {
         try { localStorage.removeItem(AUTH_KEY_EXPAND); } catch {}
@@ -411,6 +424,8 @@ function ExpandPanel({ story, lang, t, onCreated }) {
           </div>
         </div>
 
+        <CoParentPicker story={story} lang={lang} t={t} selected={extraParentSlugs} onChange={setExtraParentSlugs} />
+
         <div style={expandStyles.field}>
           <label style={expandStyles.label}>{t.promptLabel}</label>
           <textarea
@@ -438,6 +453,144 @@ function ExpandPanel({ story, lang, t, onCreated }) {
     </>
   );
 }
+
+function collectDescendants(allStories, rootSlug) {
+  const childrenBy = new Map();
+  for (const s of allStories) {
+    const ps = s.parentSlug;
+    if (!ps) continue;
+    if (!childrenBy.has(ps)) childrenBy.set(ps, []);
+    childrenBy.get(ps).push(s.slug);
+  }
+  const out = new Set([rootSlug]);
+  const stack = [rootSlug];
+  while (stack.length) {
+    const cur = stack.pop();
+    const kids = childrenBy.get(cur) || [];
+    for (const k of kids) if (!out.has(k)) { out.add(k); stack.push(k); }
+  }
+  return out;
+}
+
+function collectTreeSlugs(node, set) {
+  if (!node) return set;
+  set.add(node.slug);
+  for (const c of node.children || []) collectTreeSlugs(c, set);
+  return set;
+}
+
+function CoParentPicker({ story, lang, t, selected, onChange }) {
+  const all = window.CFIA_STORIES || [];
+  const [tree, setTree] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoaded(false);
+    setTree(null);
+    fetch('/api/universes')
+      .then((r) => r.ok ? r.json() : { universes: [] })
+      .then((data) => {
+        if (!alive) return;
+        setTree(findUniverseTree(data.universes || [], story.slug));
+        setLoaded(true);
+      })
+      .catch(() => { if (alive) { setTree(null); setLoaded(true); } });
+    return () => { alive = false; };
+  }, [story.slug]);
+
+  const candidates = useMemo(() => {
+    if (!tree) return [];
+    const inTree = collectTreeSlugs(tree.root, new Set());
+    const excluded = collectDescendants(all, story.slug);
+    return all
+      .filter((s) => inTree.has(s.slug) && !excluded.has(s.slug))
+      .sort((a, b) => (a.num || 0) - (b.num || 0));
+  }, [all, story.slug, tree]);
+
+  const toggle = (slug) => {
+    if (selected.includes(slug)) {
+      onChange(selected.filter((s) => s !== slug));
+    } else {
+      if (selected.length >= 6) return;
+      onChange([...selected, slug]);
+    }
+  };
+
+  if (!loaded) return null;
+
+  if (!tree) {
+    return (
+      <div style={expandStyles.field}>
+        <label style={expandStyles.label}>{t.coParentsLabel}</label>
+        <div style={expandStyles.hintSmall}>{t.coParentsNoUniverse}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={expandStyles.field}>
+      <label style={expandStyles.label}>
+        {t.coParentsLabel}
+        {selected.length ? <span style={expandStyles.parentTag}> · {t.coParentsSelected(selected.length)}</span> : null}
+      </label>
+      <div style={expandStyles.hintSmall}>{t.coParentsHint}</div>
+      {candidates.length === 0 ? (
+        <div style={coParentStyles.empty}>{t.coParentsNone}</div>
+      ) : (
+        <>
+          <div style={coParentStyles.list}>
+            {candidates.map((s) => {
+              const on = selected.includes(s.slug);
+              const title = s.title?.[lang] || s.title?.es || s.slug;
+              const excerpt = s.excerpt?.[lang] || s.excerpt?.es || '';
+              const disabled = !on && selected.length >= 6;
+              return (
+                <button
+                  key={s.slug}
+                  type="button"
+                  onClick={() => toggle(s.slug)}
+                  disabled={disabled}
+                  style={{
+                    ...coParentStyles.item,
+                    ...(on ? coParentStyles.itemOn : {}),
+                    ...(disabled ? coParentStyles.itemDisabled : {}),
+                  }}
+                >
+                  <span style={coParentStyles.check}>{on ? '◼' : '◻'}</span>
+                  <span style={coParentStyles.num}>{String(s.num).padStart(3, '0')}</span>
+                  <span style={coParentStyles.titleCol}>
+                    <span style={coParentStyles.title}>{title}</span>
+                    {excerpt ? <span style={coParentStyles.excerpt}>{excerpt.length > 120 ? excerpt.slice(0, 119) + '…' : excerpt}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {selected.length ? (
+            <button type="button" onClick={() => onChange([])} style={coParentStyles.clear}>
+              × {t.coParentsClear}
+            </button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+const coParentStyles = {
+  list: { display: 'flex', flexDirection: 'column', border: '1px solid #2a2a35', maxHeight: 260, overflow: 'auto', background: '#0a0a0f' },
+  item: { display: 'grid', gridTemplateColumns: '24px 48px 1fr', gap: 10, alignItems: 'baseline', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: '1px solid #1a1a22', color: '#f5f3ee', padding: '10px 12px', cursor: 'pointer' },
+  itemOn: { background: 'rgba(232,184,74,0.1)', borderLeftColor: '#e8b84a', boxShadow: 'inset 2px 0 0 #e8b84a' },
+  itemDisabled: { opacity: 0.35, cursor: 'not-allowed' },
+  check: { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#e8b84a' },
+  num: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#6b6860' },
+  titleCol: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
+  title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, color: '#f5f3ee', lineHeight: 1.25 },
+  excerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 12, color: '#b8b5ad', lineHeight: 1.4 },
+  empty: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#6b6860', padding: 10 },
+  clear: { alignSelf: 'flex-start', background: 'transparent', border: '1px solid #3a3832', color: '#b8b5ad', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', padding: '8px 12px', cursor: 'pointer', textTransform: 'uppercase' },
+};
 
 const CTX_WARN_THRESHOLD = 8000;
 

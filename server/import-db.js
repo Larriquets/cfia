@@ -23,6 +23,7 @@ const stats = {
   universes: { created: 0, updated: 0 },
   memories: { upserted: 0 },
   stories: { created: 0, updated: 0, linkedParent: 0 },
+  coParents: { created: 0, skipped: 0 },
   tags: { created: 0 },
 };
 
@@ -149,9 +150,27 @@ for (const { childSlug, parentSlug } of pendingParentLinks) {
   stats.stories.linkedParent++;
 }
 
+for (const { childSlug, parentSlug } of data.coParents || []) {
+  if (!childSlug || !parentSlug || childSlug === parentSlug) { stats.coParents.skipped++; continue; }
+  const childId = storyIdBySlug.get(childSlug);
+  const parentId = storyIdBySlug.get(parentSlug);
+  if (!childId || !parentId) { stats.coParents.skipped++; continue; }
+  try {
+    await prisma.storyCoParent.upsert({
+      where: { childId_parentId: { childId, parentId } },
+      update: {},
+      create: { childId, parentId },
+    });
+    stats.coParents.created++;
+  } catch {
+    stats.coParents.skipped++;
+  }
+}
+
 console.log('import done:');
 console.log(`  authors    → created ${stats.authors.created}, updated ${stats.authors.updated}`);
 console.log(`  universes  → created ${stats.universes.created}, updated ${stats.universes.updated}`);
 console.log(`  memories   → upserted ${stats.memories.upserted}`);
 console.log(`  stories    → created ${stats.stories.created}, updated ${stats.stories.updated}, parent links ${stats.stories.linkedParent}`);
+console.log(`  coParents  → created ${stats.coParents.created}, skipped ${stats.coParents.skipped}`);
 await prisma.$disconnect();

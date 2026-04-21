@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(__dirname, '../prisma/stories-export.json');
 
-const [authors, universes, memories, stories] = await Promise.all([
+const [authors, universes, memories, stories, coParents] = await Promise.all([
   prisma.author.findMany({ orderBy: { id: 'asc' } }),
   prisma.universe.findMany({ orderBy: { id: 'asc' } }),
   prisma.universeMemory.findMany({ orderBy: { id: 'asc' } }),
@@ -15,6 +15,7 @@ const [authors, universes, memories, stories] = await Promise.all([
     orderBy: { num: 'asc' },
     include: { tags: true, author: true, universe: true, parent: true },
   }),
+  prisma.storyCoParent.findMany({ include: { child: { select: { slug: true } }, parent: { select: { slug: true } } } }),
 ]);
 
 const payload = {
@@ -67,6 +68,9 @@ const payload = {
     universeSlug: s.universe?.slug ?? null,
     parentSlug: s.parent?.slug ?? null,
   })),
+  coParents: coParents
+    .filter((cp) => cp.child?.slug && cp.parent?.slug)
+    .map((cp) => ({ childSlug: cp.child.slug, parentSlug: cp.parent.slug })),
 };
 
 writeFileSync(OUT, JSON.stringify(payload, null, 2), 'utf8');
@@ -75,4 +79,5 @@ console.log(`  authors: ${payload.authors.length}`);
 console.log(`  universes: ${payload.universes.length}`);
 console.log(`  universeMemory: ${payload.universeMemory.length}`);
 console.log(`  stories: ${payload.stories.length}`);
+console.log(`  coParents: ${payload.coParents.length}`);
 await prisma.$disconnect();

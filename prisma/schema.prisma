@@ -33,8 +33,23 @@ model Story {
   parentId   Int?
   parent     Story?    @relation("StoryThread", fields: [parentId], references: [id])
   children   Story[]   @relation("StoryThread")
+  coParentsOut StoryCoParent[] @relation("StoryCoParentChild")
+  coParentsIn  StoryCoParent[] @relation("StoryCoParentParent")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+}
+
+model StoryCoParent {
+  id        Int      @id @default(autoincrement())
+  childId   Int
+  parentId  Int
+  child     Story    @relation("StoryCoParentChild", fields: [childId], references: [id], onDelete: Cascade)
+  parent    Story    @relation("StoryCoParentParent", fields: [parentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([childId, parentId])
+  @@index([childId])
+  @@index([parentId])
 }
 
 model Tag {

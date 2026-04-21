@@ -78,8 +78,8 @@ function UniverseBlock({ universe, lang, onOpen, t, index, view }) {
         <span style={styles.universeRoot}>{t.rootLabel} · {universe.root.title?.[lang] || universe.root.title?.es}</span>
         <span style={styles.universeTotal}>◼ {t.totalLabel(universe.total)}</span>
       </div>
-      {view === 'map' && <UniverseGraph root={universe.root} lang={lang} onOpen={onOpen} />}
-      {view === 'cosmos' && <UniverseCosmos root={universe.root} lang={lang} onOpen={onOpen} />}
+      {view === 'map' && <UniverseGraph root={universe.root} lang={lang} onOpen={onOpen} coParents={universe.coParents || []} />}
+      {view === 'cosmos' && <UniverseCosmos root={universe.root} lang={lang} onOpen={onOpen} coParents={universe.coParents || []} />}
       {view === 'list' && <UniverseList root={universe.root} lang={lang} onOpen={onOpen} />}
     </div>
   );
@@ -130,9 +130,13 @@ function layoutTree(root) {
   return { nodes, edges, width: maxX + H_GAP / 2, height: maxY + V_GAP };
 }
 
-function UniverseGraph({ root, lang, onOpen }) {
+function UniverseGraph({ root, lang, onOpen, coParents = [] }) {
   const [hover, setHover] = useState(null);
   const layout = useMemo(() => layoutTree(root), [root]);
+  const nodeBySlug = useMemo(() => new Map(layout.nodes.map((n) => [n.slug, n])), [layout.nodes]);
+  const coEdges = useMemo(() => (coParents || [])
+    .map((e) => ({ from: e.parent, to: e.child, a: nodeBySlug.get(e.parent), b: nodeBySlug.get(e.child) }))
+    .filter((e) => e.a && e.b), [coParents, nodeBySlug]);
 
   const ancestorPath = useMemo(() => {
     if (!hover) return new Set();
@@ -172,6 +176,24 @@ function UniverseGraph({ root, lang, onOpen }) {
               stroke={hi ? '#e8b84a' : '#3a3832'}
               strokeWidth={hi ? 1.6 : 1}
               opacity={hover && !hi ? 0.3 : 1}
+            />
+          );
+        })}
+
+        {coEdges.map((e, i) => {
+          const hi = hover && (hover === e.from || hover === e.to);
+          const midX = (e.a.x + e.b.x) / 2;
+          const midY = Math.min(e.a.y, e.b.y) - 30;
+          const d = `M ${e.a.x} ${e.a.y} Q ${midX} ${midY} ${e.b.x} ${e.b.y}`;
+          return (
+            <path
+              key={`co-${i}`}
+              d={d}
+              fill="none"
+              stroke={hi ? '#9ac17a' : '#5a7a4e'}
+              strokeWidth={hi ? 1.6 : 1}
+              strokeDasharray="4 3"
+              opacity={hover && !hi ? 0.3 : 0.9}
             />
           );
         })}
@@ -281,10 +303,14 @@ function seededRand(seed) {
   };
 }
 
-function UniverseCosmos({ root, lang, onOpen, currentSlug }) {
+function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
   const [hover, setHover] = useState(null);
   const layout = useMemo(() => layoutCosmos(root), [root]);
   const active = hover || currentSlug || null;
+  const nodeBySlug = useMemo(() => new Map(layout.nodes.map((n) => [n.slug, n])), [layout.nodes]);
+  const coEdges = useMemo(() => (coParents || [])
+    .map((e) => ({ from: e.parent, to: e.child, a: nodeBySlug.get(e.parent), b: nodeBySlug.get(e.child) }))
+    .filter((e) => e.a && e.b), [coParents, nodeBySlug]);
 
   const stars = useMemo(() => {
     const rand = seededRand(root.slug);
@@ -359,6 +385,31 @@ function UniverseCosmos({ root, lang, onOpen, currentSlug }) {
               stroke={hi ? '#e8b84a' : '#3a3832'}
               strokeWidth={hi ? 1.4 : 0.8}
               opacity={active && !hi ? 0.25 : 0.75}
+            />
+          );
+        })}
+
+        {coEdges.map((e, i) => {
+          const hi = active && (active === e.from || active === e.to);
+          const mx = (e.a.x + e.b.x) / 2;
+          const my = (e.a.y + e.b.y) / 2;
+          const dx = e.b.x - e.a.x;
+          const dy = e.b.y - e.a.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const nx = -dy / len;
+          const ny = dx / len;
+          const bulge = Math.min(len * 0.22, 60);
+          const cx = mx + nx * bulge;
+          const cy = my + ny * bulge;
+          return (
+            <path
+              key={`co-${i}`}
+              d={`M ${e.a.x} ${e.a.y} Q ${cx} ${cy} ${e.b.x} ${e.b.y}`}
+              fill="none"
+              stroke={hi ? '#9ac17a' : '#5a7a4e'}
+              strokeWidth={hi ? 1.4 : 1}
+              strokeDasharray="4 3"
+              opacity={active && !hi ? 0.25 : 0.85}
             />
           );
         })}
@@ -470,7 +521,7 @@ const tooltipStyles = {
   excerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 12, lineHeight: 1.4, color: '#b8b5ad' },
 };
 
-function UniverseCosmosMini({ root, lang }) {
+function UniverseCosmosMini({ root, lang, coParents = [] }) {
   const [hover, setHover] = useState(null);
   const layout = useMemo(() => layoutCosmos(root), [root]);
   const stars = useMemo(() => {
@@ -493,6 +544,11 @@ function UniverseCosmosMini({ root, lang }) {
     }
     return path;
   }, [hover, layout.nodes]);
+
+  const nodeBySlug = useMemo(() => new Map(layout.nodes.map((n) => [n.slug, n])), [layout.nodes]);
+  const coEdges = useMemo(() => (coParents || [])
+    .map((e) => ({ from: e.parent, to: e.child, a: nodeBySlug.get(e.parent), b: nodeBySlug.get(e.child) }))
+    .filter((e) => e.a && e.b), [coParents, nodeBySlug]);
 
   const edgeHighlighted = (e) => ancestorPath.has(e.from) && ancestorPath.has(e.to);
 
@@ -533,6 +589,30 @@ function UniverseCosmosMini({ root, lang }) {
             stroke={hi ? '#e8b84a' : '#3a3832'}
             strokeWidth={hi ? 1.4 : 0.8}
             opacity={hover && !hi ? 0.25 : 0.75}
+          />
+        );
+      })}
+      {coEdges.map((e, i) => {
+        const hi = hover && (hover === e.from || hover === e.to);
+        const mx = (e.a.x + e.b.x) / 2;
+        const my = (e.a.y + e.b.y) / 2;
+        const dx = e.b.x - e.a.x;
+        const dy = e.b.y - e.a.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const bulge = Math.min(len * 0.22, 60);
+        const cx = mx + nx * bulge;
+        const cy = my + ny * bulge;
+        return (
+          <path
+            key={`co-${i}`}
+            d={`M ${e.a.x} ${e.a.y} Q ${cx} ${cy} ${e.b.x} ${e.b.y}`}
+            fill="none"
+            stroke={hi ? '#9ac17a' : '#5a7a4e'}
+            strokeWidth={hi ? 1.4 : 1}
+            strokeDasharray="4 3"
+            opacity={hover && !hi ? 0.25 : 0.85}
           />
         );
       })}

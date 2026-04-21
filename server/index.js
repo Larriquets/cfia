@@ -72,13 +72,18 @@ function serialize(story) {
     children: Array.isArray(story.children)
       ? story.children.map((c) => ({ slug: c.slug, title: { es: c.titleEs, en: c.titleEn }, num: c.num }))
       : [],
+    coParents: Array.isArray(story.coParentsOut)
+      ? story.coParentsOut
+          .filter((cp) => cp.parent)
+          .map((cp) => ({ slug: cp.parent.slug, num: cp.parent.num, title: { es: cp.parent.titleEs, en: cp.parent.titleEn } }))
+      : [],
   };
 }
 
 app.get('/api/stories', async (_req, res) => {
   const stories = await prisma.story.findMany({
     orderBy: { date: 'desc' },
-    include: { tags: true, author: true, universe: true, parent: true, children: true },
+    include: { tags: true, author: true, universe: true, parent: true, children: true, coParentsOut: { include: { parent: { select: { slug: true, num: true, titleEs: true, titleEn: true } } } } },
   });
   res.json(stories.map(serialize));
 });
@@ -88,7 +93,7 @@ app.post('/api/stories/:slug/like', async (req, res) => {
     const story = await prisma.story.update({
       where: { slug: req.params.slug },
       data: { likes: { increment: 1 } },
-      include: { tags: true, author: true, universe: true, parent: true, children: true },
+      include: { tags: true, author: true, universe: true, parent: true, children: true, coParentsOut: { include: { parent: { select: { slug: true, num: true, titleEs: true, titleEn: true } } } } },
     });
     res.json({ slug: story.slug, likes: story.likes });
   } catch (e) {
@@ -117,7 +122,7 @@ app.delete('/api/stories/:slug/like', async (req, res) => {
 app.get('/api/stories/:slug', async (req, res) => {
   const story = await prisma.story.findUnique({
     where: { slug: req.params.slug },
-    include: { tags: true, author: true, universe: true, parent: true, children: true },
+    include: { tags: true, author: true, universe: true, parent: true, children: true, coParentsOut: { include: { parent: { select: { slug: true, num: true, titleEs: true, titleEn: true } } } } },
   });
   if (!story) return res.status(404).json({ error: 'not found' });
   res.json(serialize(story));
@@ -276,6 +281,9 @@ app.get('/api/universes', async (_req, res) => {
       orderBy: { num: 'asc' },
       select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, excerptEn: true, parentId: true, date: true },
     });
+    const coParentRows = await prisma.storyCoParent.findMany({
+      select: { childId: true, parentId: true },
+    });
 
     const byId = new Map(stories.map((s) => [s.id, { ...s, children: [] }]));
     const roots = [];
@@ -293,6 +301,11 @@ app.get('/api/universes', async (_req, res) => {
       return n;
     };
 
+    const collectSlugs = (node, set) => {
+      set.add(node.slug);
+      for (const c of node.children) collectSlugs(c, set);
+    };
+
     const serializeNode = (node) => ({
       slug: node.slug,
       num: node.num,
@@ -305,10 +318,19 @@ app.get('/api/universes', async (_req, res) => {
       .map((root) => ({ root, total: countTree(root) }))
       .filter((u) => u.total >= 3)
       .sort((a, b) => b.total - a.total)
-      .map((u) => ({
-        root: serializeNode(u.root),
-        total: u.total,
-      }));
+      .map((u) => {
+        const slugs = new Set();
+        collectSlugs(u.root, slugs);
+        const coParents = coParentRows
+          .filter((cp) => byId.has(cp.childId) && byId.has(cp.parentId))
+          .map((cp) => ({ child: byId.get(cp.childId).slug, parent: byId.get(cp.parentId).slug }))
+          .filter((e) => slugs.has(e.child) && slugs.has(e.parent));
+        return {
+          root: serializeNode(u.root),
+          total: u.total,
+          coParents,
+        };
+      });
 
     res.json({ universes });
   } catch (e) {
@@ -428,7 +450,7 @@ async function persistStory({ gen, modelLabel, temp, tags, authorId = null, univ
         })),
       },
     },
-    include: { tags: true, author: true, universe: true, parent: true, children: true },
+    include: { tags: true, author: true, universe: true, parent: true, children: true, coParentsOut: { include: { parent: { select: { slug: true, num: true, titleEs: true, titleEn: true } } } } },
   });
 }
 
@@ -756,8 +778,41 @@ app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) =>
     });
     if (!parent) return res.status(404).json({ error: 'not found' });
 
-    const { provider = 'anthropic', model, temp = 0.9, angle = 'auto', length = 'medium', form = null, prompt = '' } = req.body || {};
+    const { provider = 'anthropic', model, temp = 0.9, angle = 'auto', length = 'medium', form = null, prompt = '', extraParentSlugs = [] } = req.body || {};
     const curatorPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+    const extraSlugs = Array.isArray(extraParentSlugs)
+      ? [...new Set(extraParentSlugs.filter((s) => typeof s === 'string' && s && s !== parent.slug))].slice(0, 6)
+      : [];
+
+    let extraParents = [];
+    if (extraSlugs.length) {
+      const rows = await prisma.story.findMany({
+        where: { slug: { in: extraSlugs } },
+        select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, excerptEn: true, bodyEs: true, universeId: true, parentId: true },
+      });
+      const allForTree = await prisma.story.findMany({
+        select: { id: true, parentId: true, slug: true },
+      });
+      const parentById = new Map(allForTree.map((s) => [s.id, s.parentId]));
+      const rootOf = (id) => {
+        let cur = id;
+        const seen = new Set();
+        while (cur != null && !seen.has(cur)) {
+          seen.add(cur);
+          const p = parentById.get(cur);
+          if (p == null) return cur;
+          cur = p;
+        }
+        return cur;
+      };
+      const parentRoot = rootOf(parent.id);
+      extraParents = rows.filter((r) => {
+        if (parent.universeId && r.universeId === parent.universeId) return true;
+        return rootOf(r.id) === parentRoot;
+      });
+      const dropped = rows.length - extraParents.length;
+      if (dropped > 0) console.log(`[expand] dropped ${dropped} co-parent(s) outside tree root=${parentRoot} universe=${parent.universeId ?? 'none'}`);
+    }
     const wantClaude = provider === 'anthropic';
     const wantGemini = provider === 'google';
     if (wantClaude && !process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada' });
@@ -809,6 +864,18 @@ CADENA DE ANCESTROS (del más cercano al más lejano, NO son el padre directo �
 ${ancestors.map((a, i) => `${i + 1}. [${String(a.num).padStart(3, '0')}] ${a.titleEs} — ${a.excerptEs}`).join('\n')}`
       : '';
 
+    const coParentsBlock = extraParents.length
+      ? `
+
+CUENTOS CO-PADRES (el curador pidió que este cuento TAMBIÉN herede de estos otros cuentos del mismo universo — no son el padre principal, pero el nuevo cuento debe dialogar con ellos: reusar nombres, ecos, tensiones):
+${extraParents.map((p, i) => {
+  const preview = (p.bodyEs || p.excerptEs || '').slice(0, 900);
+  return `${i + 1}. [${String(p.num).padStart(3, '0')}] ${p.titleEs}\n   Excerpt: ${p.excerptEs}\n   Fragmento: ${preview}${preview.length >= 900 ? '…' : ''}`;
+}).join('\n\n')}
+
+El cuento nuevo es un PUNTO DE CONFLUENCIA: surge del padre principal pero también recoge hilos de estos co-padres. Mostralo en el texto — al menos un nombre propio, lugar, objeto o tensión de cada co-padre tiene que aparecer de forma reconocible.`
+      : '';
+
     const curatorBlock = curatorPrompt
       ? `
 
@@ -830,7 +897,7 @@ Slug padre: ${parent.slug}
 Tags del padre: ${parent.tags.map((t) => t.name).join(', ')}
 
 Cuerpo del cuento padre:
-${parentBody}${ancestorsBlock}${isolationBlock}
+${parentBody}${ancestorsBlock}${coParentsBlock}${isolationBlock}
 
 =====================
 Escribí un NUEVO cuento que expanda este. Ángulo: ${angleNote}
@@ -842,7 +909,7 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
     const effectiveFormId = overrideForm || inheritedForm;
     const knobs = pickCreativityKnobs({ formId: effectiveFormId });
     const formSource = overrideForm ? 'override' : (inheritedForm ? 'inherited' : 'random');
-    console.log(`[expand] parent=${parent.slug} ancestors=${ancestors.length} angle=${angle} provider=${provider} form=${knobs.form.id} (${formSource}) prompt=${curatorPrompt ? curatorPrompt.slice(0, 60) : '∅'}`);
+    console.log(`[expand] parent=${parent.slug} ancestors=${ancestors.length} co-parents=${extraParents.length} angle=${angle} provider=${provider} form=${knobs.form.id} (${formSource}) prompt=${curatorPrompt ? curatorPrompt.slice(0, 60) : '∅'}`);
 
     const withTimeout = (p, ms, label) =>
       Promise.race([
@@ -877,9 +944,15 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
       form: gen.knobs?.form?.id ?? inheritedForm,
     });
 
+    if (extraParents.length) {
+      await prisma.storyCoParent.createMany({
+        data: extraParents.map((p) => ({ childId: story.id, parentId: p.id })),
+      });
+    }
+
     const full = await prisma.story.findUnique({
       where: { id: story.id },
-      include: { tags: true, author: true, universe: true, parent: true, children: true },
+      include: { tags: true, author: true, universe: true, parent: true, children: true, coParentsOut: { include: { parent: { select: { slug: true, num: true, titleEs: true, titleEn: true } } } } },
     });
     res.json(serialize(full));
 
