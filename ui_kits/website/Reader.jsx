@@ -247,6 +247,8 @@ function StoryUniverseMap({ story, lang, onOpen }) {
     ? 'Cuentos del mismo hilo. Clic para seguir leyendo.'
     : 'Stories from the same thread. Click to keep reading.';
   const totalLbl = lang === 'es' ? `${tree.total} NODOS` : `${tree.total} NODES`;
+  const openLbl = lang === 'es' ? 'ABRIR UNIVERSO →' : 'OPEN UNIVERSE →';
+  const openUniverse = window.CFIA_onOpenUniverse;
 
   return (
     <>
@@ -256,6 +258,11 @@ function StoryUniverseMap({ story, lang, onOpen }) {
           <span style={universeMapStyles.label}>◼ {label}</span>
           <span style={universeMapStyles.name}>{universeName}</span>
           <span style={universeMapStyles.total}>{totalLbl}</span>
+          {openUniverse ? (
+            <a style={universeMapStyles.openLink} onClick={() => openUniverse(tree.root.slug)}>
+              {openLbl}
+            </a>
+          ) : null}
         </div>
         <div style={universeMapStyles.hint}>{hint}</div>
         <div style={universeMapStyles.canvas}>
@@ -272,6 +279,7 @@ const universeMapStyles = {
   label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
   name: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: '#f5f3ee', letterSpacing: '-0.01em', flex: 1, minWidth: 160 },
   total: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase' },
+  openLink: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#f5f3ee', cursor: 'pointer', borderBottom: '1px solid #6b6860', paddingBottom: 2 },
   hint: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#b8b5ad' },
   canvas: { border: '1px solid #1a1a22', background: '#050508' },
 };

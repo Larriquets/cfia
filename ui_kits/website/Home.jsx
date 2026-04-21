@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-function Home({ stories, lang, onOpen, onNav }) {
+function Home({ stories, lang, onOpen, onNav, onOpenUniverse }) {
   const { StoryCard, Illustration, LikeButton, UniverseCosmosMini } = window;
   const [universes, setUniverses] = useState(null);
 
@@ -124,7 +124,7 @@ function Home({ stories, lang, onOpen, onNav }) {
                 <div
                   key={u.root.slug}
                   style={homeStyles.cosmosTile}
-                  onClick={() => onNav('universes')}
+                  onClick={() => onOpenUniverse?.(u.root.slug)}
                 >
                   <div style={homeStyles.cosmosCanvas}>
                     <UniverseCosmosMini root={u.root} lang={lang} coParents={u.coParents || []} onOpen={onOpen} />

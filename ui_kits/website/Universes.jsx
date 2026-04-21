@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 
-function Universes({ lang, onOpen }) {
+function Universes({ lang, onOpen, onOpenUniverse }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [view, setView] = useState('cosmos');
@@ -13,8 +13,8 @@ function Universes({ lang, onOpen }) {
   }, []);
 
   const t = lang === 'es'
-    ? { eyebrow: 'UNIVERSOS · SUB-MUNDOS DEL CANON', h1: 'Mapa de universos.', subtitle: 'Cuando un cuento se hereda tres o más veces, su árbol deja de ser una serie y se vuelve un universo propio — con sus personajes, lugares y reglas. Cada uno es un mapa navegable.', loading: 'CARGANDO UNIVERSOS · ', err: '◼ ERROR:', empty: 'Todavía no hay universos. Un cuento se vuelve universo cuando tiene al menos dos niveles de descendencia.', rootLabel: 'RAÍZ', totalLabel: (n) => `${n} NODOS`, viewMap: 'MAPA', viewCosmos: 'COSMOS', viewList: 'LISTA' }
-    : { eyebrow: 'UNIVERSES · SUB-WORLDS OF THE CANON', h1: 'Universe map.', subtitle: 'When a story is inherited three or more times, its tree stops being a series and becomes its own universe — with its characters, places and rules. Each one is a navigable map.', loading: 'LOADING UNIVERSES · ', err: '◼ ERROR:', empty: 'No universes yet. A story becomes a universe when it has at least two levels of descendants.', rootLabel: 'ROOT', totalLabel: (n) => `${n} NODES`, viewMap: 'MAP', viewCosmos: 'COSMOS', viewList: 'LIST' };
+    ? { eyebrow: 'UNIVERSOS · SUB-MUNDOS DEL CANON', h1: 'Mapa de universos.', subtitle: 'Cuando un cuento se hereda tres o más veces, su árbol deja de ser una serie y se vuelve un universo propio — con sus personajes, lugares y reglas. Cada uno es un mapa navegable.', loading: 'CARGANDO UNIVERSOS · ', err: '◼ ERROR:', empty: 'Todavía no hay universos. Un cuento se vuelve universo cuando tiene al menos dos niveles de descendencia.', rootLabel: 'RAÍZ', totalLabel: (n) => `${n} NODOS`, viewMap: 'MAPA', viewCosmos: 'COSMOS', viewList: 'LISTA', openUniverse: 'ABRIR UNIVERSO →' }
+    : { eyebrow: 'UNIVERSES · SUB-WORLDS OF THE CANON', h1: 'Universe map.', subtitle: 'When a story is inherited three or more times, its tree stops being a series and becomes its own universe — with its characters, places and rules. Each one is a navigable map.', loading: 'LOADING UNIVERSES · ', err: '◼ ERROR:', empty: 'No universes yet. A story becomes a universe when it has at least two levels of descendants.', rootLabel: 'ROOT', totalLabel: (n) => `${n} NODES`, viewMap: 'MAP', viewCosmos: 'COSMOS', viewList: 'LIST', openUniverse: 'OPEN UNIVERSE →' };
 
   if (error) {
     return (
@@ -62,7 +62,7 @@ function Universes({ lang, onOpen }) {
       ) : (
         <section style={styles.list}>
           {data.map((u, i) => (
-            <UniverseBlock key={u.root.slug} universe={u} lang={lang} onOpen={onOpen} t={t} index={i + 1} view={view} />
+            <UniverseBlock key={u.root.slug} universe={u} lang={lang} onOpen={onOpen} onOpenUniverse={onOpenUniverse} t={t} index={i + 1} view={view} />
           ))}
         </section>
       )}
@@ -70,13 +70,26 @@ function Universes({ lang, onOpen }) {
   );
 }
 
-function UniverseBlock({ universe, lang, onOpen, t, index, view }) {
+function UniverseBlock({ universe, lang, onOpen, onOpenUniverse, t, index, view }) {
   return (
     <div style={styles.universe}>
       <div style={styles.universeHead}>
         <span style={styles.universeIndex}>{String(index).padStart(2, '0')}</span>
-        <span style={styles.universeRoot}>{t.rootLabel} · {universe.root.title?.[lang] || universe.root.title?.es}</span>
+        <span
+          style={{ ...styles.universeRoot, cursor: onOpenUniverse ? 'pointer' : 'default' }}
+          onClick={() => onOpenUniverse?.(universe.root.slug)}
+        >
+          {t.rootLabel} · {universe.root.title?.[lang] || universe.root.title?.es}
+        </span>
         <span style={styles.universeTotal}>◼ {t.totalLabel(universe.total)}</span>
+        {onOpenUniverse ? (
+          <a
+            style={styles.openLink}
+            onClick={() => onOpenUniverse(universe.root.slug)}
+          >
+            {t.openUniverse}
+          </a>
+        ) : null}
       </div>
       {view === 'map' && <UniverseGraph root={universe.root} lang={lang} onOpen={onOpen} coParents={universe.coParents || []} />}
       {view === 'cosmos' && <UniverseCosmos root={universe.root} lang={lang} onOpen={onOpen} coParents={universe.coParents || []} />}
@@ -862,6 +875,7 @@ const styles = {
   universeIndex: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#6b6860' },
   universeRoot: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, color: '#f5f3ee', letterSpacing: '-0.01em', flex: 1, minWidth: 200 },
   universeTotal: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a' },
+  openLink: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#f5f3ee', cursor: 'pointer', borderBottom: '1px solid #6b6860', paddingBottom: 2 },
   tree: { fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: '#f5f3ee', lineHeight: 1.9, overflowX: 'auto' },
   treeLine: { display: 'flex', alignItems: 'baseline', gap: 8, cursor: 'pointer', padding: '2px 0', whiteSpace: 'nowrap' },
   treeGlyph: { color: '#6b6860', whiteSpace: 'pre' },

@@ -15,8 +15,9 @@ import './Reader.jsx';
 import './About.jsx';
 import './Create.jsx';
 import './Universes.jsx';
+import './UniversePage.jsx';
 
-const { Nav, Footer, Home, Catalog, Reader, About, Create, Universes } = window;
+const { Nav, Footer, Home, Catalog, Reader, About, Create, Universes, UniversePage } = window;
 
 const ROUTE_PATH = {
   home: '/',
@@ -28,6 +29,7 @@ const ROUTE_PATH = {
 
 function pathFor(route, slug) {
   if (route === 'reader' && slug) return `/cuentos/${slug}`;
+  if (route === 'universe' && slug) return `/universos/${slug}`;
   return ROUTE_PATH[route] || '/';
 }
 
@@ -38,6 +40,8 @@ function parseLocation(pathname) {
   if (p === '/universos') return { route: 'universes', slug: null };
   if (p === '/crear') return { route: 'create', slug: null };
   if (p === '/acerca') return { route: 'about', slug: null };
+  const u = p.match(/^\/universos\/([^/]+)$/);
+  if (u) return { route: 'universe', slug: decodeURIComponent(u[1]) };
   const m = p.match(/^\/cuentos\/([^/]+)$/);
   if (m) return { route: 'reader', slug: decodeURIComponent(m[1]) };
   return { route: 'home', slug: null };
@@ -87,6 +91,8 @@ function App() {
 
   const onOpen = (s) => pushRoute('reader', s);
   const onNav = (r) => pushRoute(r, null);
+  const onOpenUniverse = (rootSlug) => pushRoute('universe', rootSlug);
+  window.CFIA_onOpenUniverse = onOpenUniverse;
 
   const onLikeChange = (s, likes) => {
     setStories((prev) => prev ? prev.map((x) => x.slug === s ? { ...x, likes } : x) : prev);
@@ -152,9 +158,10 @@ function App() {
   return (
     <div>
       <Nav route={route} onNav={onNav} lang={lang} onLang={setLang} />
-      {route === 'home' && <Home stories={stories} lang={lang} onOpen={onOpen} onNav={onNav} />}
+      {route === 'home' && <Home stories={stories} lang={lang} onOpen={onOpen} onNav={onNav} onOpenUniverse={onOpenUniverse} />}
       {route === 'catalog' && <Catalog stories={stories} lang={lang} onOpen={onOpen} />}
-      {route === 'universes' && <Universes lang={lang} onOpen={onOpen} />}
+      {route === 'universes' && <Universes lang={lang} onOpen={onOpen} onOpenUniverse={onOpenUniverse} />}
+      {route === 'universe' && UniversePage && <UniversePage rootSlug={slug} lang={lang} onOpen={onOpen} onNav={onNav} onOpenUniverse={onOpenUniverse} />}
       {route === 'create' && <Create lang={lang} onCreated={onCreated} stories={stories} />}
       {route === 'reader' && current && <Reader story={current} lang={lang} onBack={() => onNav('catalog')} onOpen={onOpen} onCreated={onCreated} />}
       {route === 'about' && <About lang={lang} onNav={onNav} />}
