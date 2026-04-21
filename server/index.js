@@ -966,6 +966,96 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
   }
 });
 
+const AUDIO_CACHE_DIR = path.join(ROOT, 'audio-cache');
+if (!fs.existsSync(AUDIO_CACHE_DIR)) fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
+
+const audioInflight = new Map();
+
+function audioCachePath(slug, lang) {
+  const safe = String(slug).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const l = lang === 'en' ? 'en' : 'es';
+  return path.join(AUDIO_CACHE_DIR, `${safe}-${l}.mp3`);
+}
+
+async function synthesizeElevenLabs({ text, lang }) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const voiceId = process.env.ELEVENLABS_VOICE_ID;
+  if (!apiKey || !voiceId) {
+    throw new Error('ELEVENLABS_API_KEY o ELEVENLABS_VOICE_ID no configurados');
+  }
+  const modelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'content-type': 'application/json',
+      accept: 'audio/mpeg',
+    },
+    body: JSON.stringify({
+      text,
+      model_id: modelId,
+      language_code: lang === 'en' ? 'en' : 'es',
+      voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`elevenlabs ${res.status}: ${detail.slice(0, 400)}`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length < 200) throw new Error('elevenlabs devolvió audio vacío');
+  return buf;
+}
+
+app.get('/api/audio/:slug/:lang', async (req, res) => {
+  const { slug, lang } = req.params;
+  if (lang !== 'es' && lang !== 'en') return res.status(400).json({ error: 'lang debe ser es o en' });
+
+  const file = audioCachePath(slug, lang);
+  if (fs.existsSync(file)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(file);
+  }
+
+  const key = `${slug}:${lang}`;
+  if (audioInflight.has(key)) {
+    try {
+      await audioInflight.get(key);
+    } catch {
+      // fall through; error will be re-surfaced below
+    }
+    if (fs.existsSync(file)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.sendFile(file);
+    }
+  }
+
+  const work = (async () => {
+    const story = await prisma.story.findUnique({ where: { slug } });
+    if (!story) throw Object.assign(new Error('not found'), { status: 404 });
+    const body = lang === 'en' ? story.bodyEn : story.bodyEs;
+    const title = lang === 'en' ? story.titleEn : story.titleEs;
+    if (!body) throw Object.assign(new Error(`cuento sin body ${lang}`), { status: 404 });
+    const text = `${title}.\n\n${body}`;
+    const mp3 = await synthesizeElevenLabs({ text, lang });
+    fs.writeFileSync(file, mp3);
+    return file;
+  })();
+
+  audioInflight.set(key, work);
+  try {
+    await work;
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(file);
+  } catch (e) {
+    console.error('[audio] error', slug, lang, e?.message || e);
+    return res.status(e?.status || 500).json({ error: e?.message || 'audio failed' });
+  } finally {
+    audioInflight.delete(key);
+  }
+});
+
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
   app.use('/assets', express.static(path.join(ROOT, 'assets')));

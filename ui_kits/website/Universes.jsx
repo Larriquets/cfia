@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 
 function Universes({ lang, onOpen }) {
   const [data, setData] = useState(null);
@@ -305,6 +305,14 @@ function seededRand(seed) {
 
 function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
   const [hover, setHover] = useState(null);
+  const leaveTimerRef = useRef(null);
+  const scheduleLeave = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => setHover(null), 180);
+  };
+  const cancelLeave = () => {
+    if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null; }
+  };
   const layout = useMemo(() => layoutCosmos(root), [root]);
   const active = hover || currentSlug || null;
   const nodeBySlug = useMemo(() => new Map(layout.nodes.map((n) => [n.slug, n])), [layout.nodes]);
@@ -435,8 +443,8 @@ function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
             <g
               key={n.slug}
               style={{ cursor: 'pointer' }}
-              onMouseEnter={() => setHover(n.slug)}
-              onMouseLeave={() => setHover(null)}
+              onMouseEnter={() => { cancelLeave(); setHover(n.slug); }}
+              onMouseLeave={scheduleLeave}
               onClick={() => onOpen(n.slug)}
             >
               {(isRoot || isHovered || isCurrent) && (
@@ -484,8 +492,12 @@ function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
         {hover ? (() => {
           const n = layout.nodes.find((x) => x.slug === hover);
           if (!n) return null;
-          const W = 260;
-          const H = 120;
+          const coParentNodes = (coParents || [])
+            .filter((cp) => cp.child === hover)
+            .map((cp) => nodeBySlug.get(cp.parent))
+            .filter(Boolean);
+          const W = 300;
+          const H = coParentNodes.length ? 140 + coParentNodes.length * 56 : 120;
           const pad = 12;
           let tx = n.x + 16;
           let ty = n.y - H / 2;
@@ -495,14 +507,46 @@ function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
           const title = n.title?.[lang] || n.title?.es;
           const excerpt = n.excerpt?.[lang] || n.excerpt?.es || '';
           return (
-            <foreignObject x={tx} y={ty} width={W} height={H} style={{ pointerEvents: 'none' }}>
-              <div xmlns="http://www.w3.org/1999/xhtml" style={tooltipStyles.box}>
+            <foreignObject x={tx} y={ty} width={W} height={H} style={{ pointerEvents: 'none', overflow: 'visible' }}>
+              <div
+                xmlns="http://www.w3.org/1999/xhtml"
+                style={{ ...tooltipStyles.box, pointerEvents: 'auto' }}
+                onMouseEnter={cancelLeave}
+                onMouseLeave={scheduleLeave}
+              >
                 <div style={tooltipStyles.head}>
                   <span style={tooltipStyles.num}>{String(n.num).padStart(3, '0')}</span>
                   {n.depth === 0 ? <span style={tooltipStyles.rootTag}>{lang === 'es' ? 'RAÍZ' : 'ROOT'}</span> : null}
                 </div>
-                <div style={tooltipStyles.title}>{truncate(title, 60)}</div>
+                <div
+                  style={{ ...tooltipStyles.title, cursor: 'pointer' }}
+                  onClick={() => onOpen(n.slug)}
+                >
+                  {truncate(title, 60)}
+                </div>
                 {excerpt ? <div style={tooltipStyles.excerpt}>{truncate(excerpt, 140)}</div> : null}
+                {coParentNodes.length ? (
+                  <div style={tooltipStyles.coBlock}>
+                    <div style={tooltipStyles.lineageLbl}>◇ {lang === 'es' ? 'CO-PADRES' : 'CO-PARENTS'}</div>
+                    {coParentNodes.map((p) => {
+                      const pTitle = p.title?.[lang] || p.title?.es || p.slug;
+                      const pExcerpt = p.excerpt?.[lang] || p.excerpt?.es || '';
+                      return (
+                        <div
+                          key={p.slug}
+                          style={{ ...tooltipStyles.coItem, cursor: 'pointer' }}
+                          onClick={() => onOpen(p.slug)}
+                        >
+                          <div style={tooltipStyles.coHead}>
+                            <span style={tooltipStyles.coNum}>{String(p.num).padStart(3, '0')}</span>
+                            <span style={tooltipStyles.coTitle}>{truncate(pTitle, 40)}</span>
+                          </div>
+                          {pExcerpt ? <div style={tooltipStyles.coExcerpt}>{truncate(pExcerpt, 110)}</div> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             </foreignObject>
           );
@@ -519,10 +563,27 @@ const tooltipStyles = {
   rootTag: { fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', color: '#0a0a0f', background: '#e8b84a', padding: '2px 6px' },
   title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, lineHeight: 1.25, color: '#f5f3ee' },
   excerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 12, lineHeight: 1.4, color: '#b8b5ad' },
+  lineage: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 },
+  lineageLbl: { fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', color: '#9ac17a', textTransform: 'uppercase' },
+  lineageVal: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#f5f3ee' },
+  coBlock: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(154,193,122,0.25)' },
+  coItem: { display: 'flex', flexDirection: 'column', gap: 2, borderLeft: '2px solid #9ac17a', paddingLeft: 8 },
+  coHead: { display: 'flex', alignItems: 'baseline', gap: 8 },
+  coNum: { fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', color: '#9ac17a' },
+  coTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, lineHeight: 1.2, color: '#f5f3ee' },
+  coExcerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 11, lineHeight: 1.35, color: '#b8b5ad' },
 };
 
-function UniverseCosmosMini({ root, lang, coParents = [] }) {
+function UniverseCosmosMini({ root, lang, coParents = [], onOpen }) {
   const [hover, setHover] = useState(null);
+  const leaveTimerRef = useRef(null);
+  const scheduleLeave = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => setHover(null), 180);
+  };
+  const cancelLeave = () => {
+    if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null; }
+  };
   const layout = useMemo(() => layoutCosmos(root), [root]);
   const stars = useMemo(() => {
     const rand = seededRand(root.slug);
@@ -559,7 +620,7 @@ function UniverseCosmosMini({ root, lang, coParents = [] }) {
       viewBox={viewBox}
       style={{ width: '100%', height: '100%', display: 'block' }}
       preserveAspectRatio="xMidYMid meet"
-      onMouseLeave={() => setHover(null)}
+      onMouseLeave={scheduleLeave}
     >
       <defs>
         <radialGradient id={`nebula-mini-${root.slug}`} cx="50%" cy="50%" r="60%">
@@ -635,8 +696,10 @@ function UniverseCosmosMini({ root, lang, coParents = [] }) {
         return (
           <g
             key={n.slug}
-            style={{ pointerEvents: 'auto', cursor: 'default' }}
-            onMouseEnter={() => setHover(n.slug)}
+            style={{ pointerEvents: 'auto', cursor: onOpen ? 'pointer' : 'default' }}
+            onMouseEnter={() => { cancelLeave(); setHover(n.slug); }}
+            onMouseLeave={scheduleLeave}
+            onClick={(e) => { if (onOpen) { e.stopPropagation(); onOpen(n.slug); } }}
           >
             {(isRoot || isHovered) && (
               <circle cx={n.x} cy={n.y} r={r * 4} fill={`url(#starGlow-mini-${root.slug})`} opacity={isHovered ? 0.9 : 0.6} />
@@ -677,8 +740,12 @@ function UniverseCosmosMini({ root, lang, coParents = [] }) {
       {hover ? (() => {
         const n = layout.nodes.find((x) => x.slug === hover);
         if (!n) return null;
-        const W = 300;
-        const H = 130;
+        const coParentNodes = (coParents || [])
+          .filter((cp) => cp.child === hover)
+          .map((cp) => nodeBySlug.get(cp.parent))
+          .filter(Boolean);
+        const W = 320;
+        const H = coParentNodes.length ? 150 + coParentNodes.length * 56 : 130;
         const pad = 10;
         let tx = n.x + 14;
         let ty = n.y - H / 2;
@@ -688,14 +755,47 @@ function UniverseCosmosMini({ root, lang, coParents = [] }) {
         const title = n.title?.[lang] || n.title?.es;
         const excerpt = n.excerpt?.[lang] || n.excerpt?.es || '';
         return (
-          <foreignObject x={tx} y={ty} width={W} height={H} style={{ pointerEvents: 'none' }}>
-            <div xmlns="http://www.w3.org/1999/xhtml" style={miniTooltipStyles.box}>
+          <foreignObject x={tx} y={ty} width={W} height={H} style={{ pointerEvents: 'none', overflow: 'visible' }}>
+            <div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style={{ ...miniTooltipStyles.box, pointerEvents: 'auto' }}
+              onMouseEnter={cancelLeave}
+              onMouseLeave={scheduleLeave}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div style={miniTooltipStyles.head}>
                 <span style={miniTooltipStyles.num}>{String(n.num).padStart(3, '0')}</span>
                 {n.depth === 0 ? <span style={miniTooltipStyles.rootTag}>{lang === 'es' ? 'RAÍZ' : 'ROOT'}</span> : null}
               </div>
-              <div style={miniTooltipStyles.title}>{truncate(title, 60)}</div>
+              <div
+                style={{ ...miniTooltipStyles.title, cursor: onOpen ? 'pointer' : 'default' }}
+                onClick={(e) => { if (onOpen) { e.stopPropagation(); onOpen(n.slug); } }}
+              >
+                {truncate(title, 60)}
+              </div>
               {excerpt ? <div style={miniTooltipStyles.excerpt}>{truncate(excerpt, 140)}</div> : null}
+              {coParentNodes.length ? (
+                <div style={tooltipStyles.coBlock}>
+                  <div style={tooltipStyles.lineageLbl}>◇ {lang === 'es' ? 'CO-PADRES' : 'CO-PARENTS'}</div>
+                  {coParentNodes.map((p) => {
+                    const pTitle = p.title?.[lang] || p.title?.es || p.slug;
+                    const pExcerpt = p.excerpt?.[lang] || p.excerpt?.es || '';
+                    return (
+                      <div
+                        key={p.slug}
+                        style={{ ...tooltipStyles.coItem, cursor: onOpen ? 'pointer' : 'default' }}
+                        onClick={(e) => { if (onOpen) { e.stopPropagation(); onOpen(p.slug); } }}
+                      >
+                        <div style={tooltipStyles.coHead}>
+                          <span style={tooltipStyles.coNum}>{String(p.num).padStart(3, '0')}</span>
+                          <span style={tooltipStyles.coTitle}>{truncate(pTitle, 40)}</span>
+                        </div>
+                        {pExcerpt ? <div style={tooltipStyles.coExcerpt}>{truncate(pExcerpt, 110)}</div> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           </foreignObject>
         );

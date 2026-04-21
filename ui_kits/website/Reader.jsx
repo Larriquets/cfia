@@ -25,6 +25,8 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         expandHint: 'Pedile a ECHO-7 que escriba otro cuento que continúe, preceda o eche luz sobre este.',
         angleLabel: 'ÁNGULO',
         angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' },
+        providerLabel: 'MOTOR',
+        providers: { anthropic: 'CLAUDE', google: 'GEMINI' },
         formLabel: 'FORMA NARRATIVA',
         formHintExpand: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.',
         inheritOpt: 'HEREDAR DEL PADRE',
@@ -71,6 +73,8 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         expandHint: 'Ask ECHO-7 to write another story that continues, precedes or sheds light on this one.',
         angleLabel: 'ANGLE',
         angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' },
+        providerLabel: 'ENGINE',
+        providers: { anthropic: 'CLAUDE', google: 'GEMINI' },
         formLabel: 'NARRATIVE FORM',
         formHintExpand: 'INHERIT reuses the parent form. Pick another to contrast.',
         inheritOpt: 'INHERIT FROM PARENT',
@@ -155,8 +159,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
           ) : null}
 
           <AudioPlayer
-            title={story.title[lang]}
-            paragraphs={body}
+            slug={story.slug}
             lang={lang}
             labels={t}
           />
@@ -321,6 +324,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
     try { return localStorage.getItem(AUTH_KEY_EXPAND) || ''; } catch { return ''; }
   });
   const [angle, setAngle] = useState('auto');
+  const [provider, setProvider] = useState('anthropic');
   const [form, setForm] = useState('inherit');
   const [length, setLength] = useState('medium');
   const [prompt, setPrompt] = useState('');
@@ -351,7 +355,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
       const r = await fetch(`/api/stories/${story.slug}/expand`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-create-auth': auth },
-        body: JSON.stringify({ angle, form, prompt, length, provider: 'anthropic', temp: 0.9, extraParentSlugs }),
+        body: JSON.stringify({ angle, form, prompt, length, provider, temp: 0.9, extraParentSlugs }),
       });
       if (r.status === 401) {
         try { localStorage.removeItem(AUTH_KEY_EXPAND); } catch {}
@@ -389,6 +393,22 @@ function ExpandPanel({ story, lang, t, onCreated }) {
                 style={{ ...expandStyles.segBtn, ...(angle === a ? expandStyles.segBtnOn : {}) }}
               >
                 {t.angles[a]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={expandStyles.field}>
+          <label style={expandStyles.label}>{t.providerLabel}</label>
+          <div style={expandStyles.segBox}>
+            {['anthropic', 'google'].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setProvider(p)}
+                style={{ ...expandStyles.segBtn, ...(provider === p ? expandStyles.segBtnOn : {}) }}
+              >
+                {t.providers[p]}
               </button>
             ))}
           </div>
@@ -813,95 +833,105 @@ const expandStyles = {
   error: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.08em', color: '#e8b84a', border: '1px solid #e8b84a', padding: 12, background: 'rgba(232,184,74,0.05)' },
 };
 
-function AudioPlayer({ title, paragraphs, lang, labels }) {
-  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
-  const supported = !!synth;
+function AudioPlayer({ slug, lang, labels }) {
   const [open, setOpen] = useState(false);
-  const [voices, setVoices] = useState([]);
-  const [voiceURI, setVoiceURI] = useState('');
   const [rate, setRate] = useState(1);
-  const [state, setState] = useState('idle');
-  const [current, setCurrent] = useState(0);
-  const utterRef = useRef(null);
-  const indexRef = useRef(0);
-  const stoppedRef = useRef(false);
+  const [state, setState] = useState('idle'); // idle | loading | playing | paused | error
+  const [progress, setProgress] = useState(0); // 0..1
+  const [duration, setDuration] = useState(0);
+  const [errorMsg, setErrorMsg] = useState('');
+  const audioRef = useRef(null);
+
+  const src = useMemo(() => `/api/audio/${encodeURIComponent(slug)}/${lang}`, [slug, lang]);
 
   useEffect(() => {
-    if (!supported) return;
-    const load = () => {
-      const all = synth.getVoices();
-      const want = lang === 'es' ? 'es' : 'en';
-      const matched = all.filter((v) => v.lang && v.lang.toLowerCase().startsWith(want));
-      const list = matched.length ? matched : all;
-      setVoices(list);
-      setVoiceURI((prev) => {
-        if (prev && list.some((v) => v.voiceURI === prev)) return prev;
-        const def = list.find((v) => v.default) || list[0];
-        return def ? def.voiceURI : '';
-      });
-    };
-    load();
-    synth.addEventListener('voiceschanged', load);
-    return () => synth.removeEventListener('voiceschanged', load);
-  }, [lang, supported, synth]);
+    stop();
+    setErrorMsg('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, lang]);
 
-  useEffect(() => () => { if (synth) synth.cancel(); }, [synth]);
-  useEffect(() => { stop(); }, [paragraphs, lang]); // eslint-disable-line
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = rate;
+  }, [rate]);
 
-  function speakFrom(i) {
-    if (!supported) return;
-    if (i >= paragraphs.length) { setState('idle'); setCurrent(0); indexRef.current = 0; return; }
-    const u = new SpeechSynthesisUtterance(paragraphs[i]);
-    const voice = voices.find((v) => v.voiceURI === voiceURI);
-    if (voice) u.voice = voice;
-    u.lang = voice?.lang || (lang === 'es' ? 'es-ES' : 'en-US');
-    u.rate = rate;
-    u.pitch = 1;
-    u.onend = () => {
-      if (stoppedRef.current) return;
-      const next = indexRef.current + 1;
-      indexRef.current = next;
-      setCurrent(next);
-      speakFrom(next);
-    };
-    u.onerror = () => setState('idle');
-    utterRef.current = u;
-    synth.speak(u);
+  function getAudio() {
+    if (audioRef.current) return audioRef.current;
+    const a = new Audio(src);
+    a.preload = 'none';
+    a.playbackRate = rate;
+    a.addEventListener('playing', () => setState('playing'));
+    a.addEventListener('pause', () => setState((s) => (s === 'playing' ? 'paused' : s)));
+    a.addEventListener('ended', () => { setState('idle'); setProgress(0); });
+    a.addEventListener('loadedmetadata', () => setDuration(a.duration || 0));
+    a.addEventListener('timeupdate', () => {
+      if (a.duration > 0) setProgress(a.currentTime / a.duration);
+    });
+    a.addEventListener('error', () => {
+      setState('error');
+      setErrorMsg('No se pudo cargar el audio');
+    });
+    audioRef.current = a;
+    return a;
   }
 
-  function play() {
-    if (!supported) return;
-    stoppedRef.current = false;
-    if (state === 'paused') { synth.resume(); setState('playing'); return; }
-    synth.cancel();
-    indexRef.current = 0;
-    setCurrent(0);
-    setState('playing');
-    speakFrom(0);
+  async function play() {
+    setErrorMsg('');
+    const a = getAudio();
+    if (state === 'paused') {
+      try { await a.play(); } catch (e) { setState('error'); setErrorMsg(e.message); }
+      return;
+    }
+    setState('loading');
+    try {
+      a.currentTime = 0;
+      await a.play();
+    } catch (e) {
+      setState('error');
+      setErrorMsg(e.message || 'fallo al reproducir');
+    }
   }
 
   function pause() {
-    if (!supported || state !== 'playing') return;
-    synth.pause();
-    setState('paused');
+    const a = audioRef.current;
+    if (!a) return;
+    a.pause();
   }
 
   function stop() {
-    if (!supported) return;
-    stoppedRef.current = true;
-    synth.cancel();
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      try { a.currentTime = 0; } catch {}
+    }
     setState('idle');
-    setCurrent(0);
-    indexRef.current = 0;
+    setProgress(0);
   }
 
-  if (!supported) {
-    return <div style={audioStyles.unsupported}>{labels.unsupported}</div>;
+  useEffect(() => () => {
+    const a = audioRef.current;
+    if (a) { a.pause(); a.src = ''; }
+  }, []);
+
+  function seek(e) {
+    const a = audioRef.current;
+    if (!a || !a.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    a.currentTime = ratio * a.duration;
+    setProgress(ratio);
   }
 
   const isPlaying = state === 'playing';
   const isPaused = state === 'paused';
-  const active = isPlaying || isPaused;
+  const isLoading = state === 'loading';
+  const active = isPlaying || isPaused || isLoading;
+
+  const fmt = (s) => {
+    if (!s || !isFinite(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const r = Math.floor(s % 60);
+    return `${m}:${r.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div style={audioStyles.wrap}>
@@ -916,7 +946,8 @@ function AudioPlayer({ title, paragraphs, lang, labels }) {
           <span style={audioStyles.toggleLbl}>{labels.audio}</span>
           {active ? (
             <span style={audioStyles.toggleStatus}>
-              · {isPlaying ? labels.playing : labels.pause} · {labels.para} {current + 1}/{paragraphs.length}
+              · {isLoading ? '…' : isPlaying ? labels.playing : labels.pause}
+              {duration ? ` · ${fmt((audioRef.current?.currentTime) || 0)} / ${fmt(duration)}` : ''}
             </span>
           ) : null}
         </span>
@@ -924,67 +955,68 @@ function AudioPlayer({ title, paragraphs, lang, labels }) {
       </button>
 
       {open ? (
-      <div style={audioStyles.panel}>
-      <div style={audioStyles.row}>
-        <div style={audioStyles.controls}>
-          {!isPlaying ? (
-            <button
-              type="button"
-              onClick={play}
-              style={{ ...audioStyles.btn, ...audioStyles.btnPrimary }}
-            >
-              {isPaused ? `▶ ${labels.resume}` : `▶ ${labels.listen}`}
-            </button>
-          ) : (
-            <button type="button" onClick={pause} style={audioStyles.btn}>
-              ❚❚ {labels.pause}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={stop}
-            disabled={state === 'idle'}
-            style={{ ...audioStyles.btn, ...(state === 'idle' ? audioStyles.btnOff : {}) }}
+        <div style={audioStyles.panel}>
+          <div style={audioStyles.row}>
+            <div style={audioStyles.controls}>
+              {!isPlaying ? (
+                <button
+                  type="button"
+                  onClick={play}
+                  disabled={isLoading}
+                  style={{ ...audioStyles.btn, ...audioStyles.btnPrimary, ...(isLoading ? audioStyles.btnOff : {}) }}
+                >
+                  {isLoading ? '…' : isPaused ? `▶ ${labels.resume}` : `▶ ${labels.listen}`}
+                </button>
+              ) : (
+                <button type="button" onClick={pause} style={audioStyles.btn}>
+                  ❚❚ {labels.pause}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={stop}
+                disabled={state === 'idle'}
+                style={{ ...audioStyles.btn, ...(state === 'idle' ? audioStyles.btnOff : {}) }}
+              >
+                ■ {labels.stop}
+              </button>
+            </div>
+
+            <div style={audioStyles.selectors}>
+              <label style={audioStyles.field}>
+                <span style={audioStyles.fieldLbl}>{labels.speed} · {rate.toFixed(2)}×</span>
+                <input
+                  type="range"
+                  min="0.75"
+                  max="1.5"
+                  step="0.05"
+                  value={rate}
+                  onChange={(e) => setRate(parseFloat(e.target.value))}
+                  style={audioStyles.range}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div
+            style={audioStyles.seekOuter}
+            onClick={seek}
+            role="slider"
+            aria-valuemin={0}
+            aria-valuemax={1}
+            aria-valuenow={progress}
           >
-            ■ {labels.stop}
-          </button>
-        </div>
+            <div style={{ ...audioStyles.seekInner, width: `${Math.round(progress * 100)}%` }} />
+          </div>
 
-        <div style={audioStyles.selectors}>
-          <label style={audioStyles.field}>
-            <span style={audioStyles.fieldLbl}>{labels.voice}</span>
-            <select
-              value={voiceURI}
-              onChange={(e) => setVoiceURI(e.target.value)}
-              style={audioStyles.select}
-            >
-              {voices.map((v) => (
-                <option key={v.voiceURI} value={v.voiceURI}>
-                  {v.name} ({v.lang})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={audioStyles.field}>
-            <span style={audioStyles.fieldLbl}>{labels.speed} · {rate.toFixed(2)}×</span>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.05"
-              value={rate}
-              onChange={(e) => setRate(parseFloat(e.target.value))}
-              style={audioStyles.range}
-            />
-          </label>
+          {errorMsg ? <div style={audioStyles.err}>{errorMsg}</div> : null}
+          {isLoading ? <div style={audioStyles.hint}>Generando audio la primera vez puede tardar unos segundos…</div> : null}
         </div>
-      </div>
-
-      </div>
       ) : null}
     </div>
   );
 }
+
 
 const audioStyles = {
   wrap: { display: 'flex', flexDirection: 'column' },
@@ -1007,6 +1039,10 @@ const audioStyles = {
   range: { accentColor: '#e8b84a', width: '100%' },
   status: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
   unsupported: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.12em', color: '#6b6860', border: '1px dashed #2a2a35', padding: 14 },
+  seekOuter: { height: 6, background: '#1a1a22', border: '1px solid #2a2a35', cursor: 'pointer', position: 'relative' },
+  seekInner: { height: '100%', background: '#e8b84a', transition: 'width 120ms linear' },
+  err: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#e8b84a', textTransform: 'uppercase' },
+  hint: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#6b6860', textTransform: 'uppercase' },
 };
 
 const rdStyles = {

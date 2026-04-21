@@ -127,7 +127,7 @@ function Home({ stories, lang, onOpen, onNav }) {
                   onClick={() => onNav('universes')}
                 >
                   <div style={homeStyles.cosmosCanvas}>
-                    <UniverseCosmosMini root={u.root} lang={lang} coParents={u.coParents || []} />
+                    <UniverseCosmosMini root={u.root} lang={lang} coParents={u.coParents || []} onOpen={onOpen} />
                   </div>
                   <div style={homeStyles.cosmosMeta}>
                     <span style={homeStyles.cosmosNum}>◼ {t.univNodes(u.total)}</span>
