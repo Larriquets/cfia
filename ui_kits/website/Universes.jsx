@@ -316,7 +316,7 @@ function seededRand(seed) {
   };
 }
 
-function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
+function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [], fitMode = 'fit', fixedSize = 1600 }) {
   const [hover, setHover] = useState(null);
   const leaveTimerRef = useRef(null);
   const scheduleLeave = () => {
@@ -361,10 +361,18 @@ function UniverseCosmos({ root, lang, onOpen, currentSlug, coParents = [] }) {
 
   const edgeHighlighted = (e) => ancestorPath.has(e.from) && ancestorPath.has(e.to);
   const viewBox = `0 0 ${layout.size} ${layout.size}`;
+  const isFixed = fitMode === 'fixed';
+  const pxSize = isFixed ? Math.max(fixedSize, layout.size) : null;
+  const svgStyle = isFixed
+    ? { width: pxSize, height: pxSize, display: 'block', flex: 'none' }
+    : { ...graphStyles.svg, minHeight: 520 };
+  const wrapStyle = isFixed
+    ? { display: 'block', background: '#050508' }
+    : graphStyles.wrap;
 
   return (
-    <div style={graphStyles.wrap}>
-      <svg viewBox={viewBox} style={{ ...graphStyles.svg, minHeight: 520 }} preserveAspectRatio="xMidYMid meet">
+    <div style={wrapStyle}>
+      <svg viewBox={viewBox} style={svgStyle} preserveAspectRatio="xMidYMid meet">
         <defs>
           <radialGradient id="nebula" cx="50%" cy="50%" r="60%">
             <stop offset="0%" stopColor="#1a1428" stopOpacity="0.6" />

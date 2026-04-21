@@ -176,9 +176,12 @@ function UniverseView({ universe, universes, lang, onOpen, onNav, onOpenUniverse
               lang={lang}
               onOpen={onOpen}
               coParents={universe.coParents || []}
+              fitMode="fixed"
+              fixedSize={1600}
             />
           ) : null}
         </div>
+        <div style={styles.mapHint}>◇ {lang === 'es' ? 'Scrolleá dentro del recuadro para navegar el universo.' : 'Scroll inside the frame to navigate the universe.'}</div>
       </section>
 
       <hr style={styles.ruleHair} />
@@ -290,7 +293,8 @@ const styles = {
   mapSec: { padding: '40px 0', display: 'flex', flexDirection: 'column', gap: 20 },
   secHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' },
   secSub: { fontFamily: "'Instrument Serif', serif", fontSize: 16, color: '#6b6860', marginTop: 4 },
-  mapCanvas: { width: '100%', maxWidth: 1100, margin: '0 auto', border: '1px solid #1a1a22', background: '#050508' },
+  mapCanvas: { width: '100%', maxWidth: 1100, margin: '0 auto', border: '1px solid #1a1a22', background: '#050508', overflow: 'auto', maxHeight: '80vh' },
+  mapHint: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#6b6860', textAlign: 'center', marginTop: -4 },
 
   storiesSec: { padding: '40px 0 24px', display: 'flex', flexDirection: 'column', gap: 24 },
   storyList: { display: 'flex', flexDirection: 'column', gap: 6 },
