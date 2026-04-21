@@ -18,6 +18,12 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         audio: 'AUDIO', listen: 'ESCUCHAR', pause: 'PAUSAR', resume: 'REANUDAR', stop: 'DETENER',
         voice: 'VOZ', speed: 'VELOCIDAD', unsupported: 'Tu navegador no soporta síntesis de voz',
         para: 'PÁRRAFO', playing: 'REPRODUCIENDO',
+        engineLabel: 'MOTOR DE VOZ',
+        engineBrowser: 'NAVEGADOR',
+        engineEleven: 'ALTA CALIDAD',
+        engineBrowserHint: 'Voz del sistema. Gratis, instantáneo, calidad variable.',
+        engineElevenHint: 'Voz sintetizada con ElevenLabs. Mejor calidad, tarda unos segundos la primera vez.',
+        audioLoadingFirst: 'Generando audio la primera vez puede tardar unos segundos…',
         thread: 'HILO', expandsFrom: 'CONTINÚA DE', expandsTo: 'EXPANDIDO EN',
         relatedTitle: 'SEGUIR LEYENDO',
         reason: { parent: 'CONTINÚA DE', child: 'EXPANDIDO EN', sibling: 'HERMANO', tag: 'TAGS AFINES', recent: 'RECIENTE' },
@@ -66,6 +72,12 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         audio: 'AUDIO', listen: 'LISTEN', pause: 'PAUSE', resume: 'RESUME', stop: 'STOP',
         voice: 'VOICE', speed: 'SPEED', unsupported: 'Your browser does not support speech synthesis',
         para: 'PARAGRAPH', playing: 'PLAYING',
+        engineLabel: 'VOICE ENGINE',
+        engineBrowser: 'BROWSER',
+        engineEleven: 'HIGH QUALITY',
+        engineBrowserHint: 'System voice. Free, instant, variable quality.',
+        engineElevenHint: 'ElevenLabs synthesis. Better quality, takes a few seconds the first time.',
+        audioLoadingFirst: 'Generating audio the first time can take a few seconds…',
         thread: 'THREAD', expandsFrom: 'CONTINUES FROM', expandsTo: 'EXPANDED IN',
         relatedTitle: 'KEEP READING',
         reason: { parent: 'CONTINUES FROM', child: 'EXPANDED IN', sibling: 'SIBLING', tag: 'RELATED TAGS', recent: 'RECENT' },
@@ -162,6 +174,8 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
             slug={story.slug}
             lang={lang}
             labels={t}
+            title={story.title[lang]}
+            paragraphs={body}
           />
         </header>
 
@@ -833,11 +847,76 @@ const expandStyles = {
   error: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.08em', color: '#e8b84a', border: '1px solid #e8b84a', padding: 12, background: 'rgba(232,184,74,0.05)' },
 };
 
-function AudioPlayer({ slug, lang, labels }) {
+const AUDIO_ENGINE_KEY = 'cfia_audio_engine_v1';
+
+function AudioPlayer({ slug, lang, labels, title, paragraphs }) {
   const [open, setOpen] = useState(false);
+  const [engine, setEngine] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUDIO_ENGINE_KEY);
+      if (saved === 'browser' || saved === 'eleven') return saved;
+    } catch {}
+    return 'browser';
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(AUDIO_ENGINE_KEY, engine); } catch {}
+  }, [engine]);
+
+  return (
+    <div style={audioStyles.wrap}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={audioStyles.toggle}
+        aria-expanded={open}
+      >
+        <span style={audioStyles.toggleLeft}>
+          <span style={audioStyles.toggleIcon}>♪</span>
+          <span style={audioStyles.toggleLbl}>{labels.audio}</span>
+          <span style={audioStyles.toggleStatus}>· {engine === 'browser' ? labels.engineBrowser : labels.engineEleven}</span>
+        </span>
+        <span style={audioStyles.toggleChev}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open ? (
+        <div style={audioStyles.panel}>
+          <div style={audioStyles.engineRow}>
+            <span style={audioStyles.fieldLbl}>{labels.engineLabel}</span>
+            <div style={audioStyles.engineToggle}>
+              <button
+                type="button"
+                onClick={() => setEngine('browser')}
+                style={{ ...audioStyles.engineBtn, ...(engine === 'browser' ? audioStyles.engineBtnActive : {}) }}
+              >
+                {labels.engineBrowser}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEngine('eleven')}
+                style={{ ...audioStyles.engineBtn, ...(engine === 'eleven' ? audioStyles.engineBtnActive : {}) }}
+              >
+                {labels.engineEleven}
+              </button>
+            </div>
+          </div>
+          <div style={audioStyles.hint}>
+            {engine === 'browser' ? labels.engineBrowserHint : labels.engineElevenHint}
+          </div>
+
+          {engine === 'browser'
+            ? <BrowserEngine key={`${slug}:${lang}`} title={title} paragraphs={paragraphs} lang={lang} labels={labels} />
+            : <ElevenEngine key={`${slug}:${lang}`} slug={slug} lang={lang} labels={labels} />}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ElevenEngine({ slug, lang, labels }) {
   const [rate, setRate] = useState(1);
   const [state, setState] = useState('idle'); // idle | loading | playing | paused | error
-  const [progress, setProgress] = useState(0); // 0..1
+  const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const audioRef = useRef(null);
@@ -845,14 +924,13 @@ function AudioPlayer({ slug, lang, labels }) {
   const src = useMemo(() => `/api/audio/${encodeURIComponent(slug)}/${lang}`, [slug, lang]);
 
   useEffect(() => {
-    stop();
-    setErrorMsg('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, lang]);
-
-  useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = rate;
   }, [rate]);
+
+  useEffect(() => () => {
+    const a = audioRef.current;
+    if (a) { a.pause(); a.src = ''; }
+  }, []);
 
   function getAudio() {
     if (audioRef.current) return audioRef.current;
@@ -868,7 +946,7 @@ function AudioPlayer({ slug, lang, labels }) {
     });
     a.addEventListener('error', () => {
       setState('error');
-      setErrorMsg('No se pudo cargar el audio');
+      setErrorMsg(lang === 'es' ? 'No se pudo cargar el audio' : 'Audio failed to load');
     });
     audioRef.current = a;
     return a;
@@ -887,30 +965,20 @@ function AudioPlayer({ slug, lang, labels }) {
       await a.play();
     } catch (e) {
       setState('error');
-      setErrorMsg(e.message || 'fallo al reproducir');
+      setErrorMsg(e.message || 'play failed');
     }
   }
 
   function pause() {
-    const a = audioRef.current;
-    if (!a) return;
-    a.pause();
+    audioRef.current?.pause();
   }
 
   function stop() {
     const a = audioRef.current;
-    if (a) {
-      a.pause();
-      try { a.currentTime = 0; } catch {}
-    }
+    if (a) { a.pause(); try { a.currentTime = 0; } catch {} }
     setState('idle');
     setProgress(0);
   }
-
-  useEffect(() => () => {
-    const a = audioRef.current;
-    if (a) { a.pause(); a.src = ''; }
-  }, []);
 
   function seek(e) {
     const a = audioRef.current;
@@ -924,7 +992,6 @@ function AudioPlayer({ slug, lang, labels }) {
   const isPlaying = state === 'playing';
   const isPaused = state === 'paused';
   const isLoading = state === 'loading';
-  const active = isPlaying || isPaused || isLoading;
 
   const fmt = (s) => {
     if (!s || !isFinite(s)) return '0:00';
@@ -934,86 +1001,230 @@ function AudioPlayer({ slug, lang, labels }) {
   };
 
   return (
-    <div style={audioStyles.wrap}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={audioStyles.toggle}
-        aria-expanded={open}
-      >
-        <span style={audioStyles.toggleLeft}>
-          <span style={audioStyles.toggleIcon}>{active ? '◉' : '♪'}</span>
-          <span style={audioStyles.toggleLbl}>{labels.audio}</span>
-          {active ? (
-            <span style={audioStyles.toggleStatus}>
-              · {isLoading ? '…' : isPlaying ? labels.playing : labels.pause}
-              {duration ? ` · ${fmt((audioRef.current?.currentTime) || 0)} / ${fmt(duration)}` : ''}
-            </span>
-          ) : null}
-        </span>
-        <span style={audioStyles.toggleChev}>{open ? '▲' : '▼'}</span>
-      </button>
-
-      {open ? (
-        <div style={audioStyles.panel}>
-          <div style={audioStyles.row}>
-            <div style={audioStyles.controls}>
-              {!isPlaying ? (
-                <button
-                  type="button"
-                  onClick={play}
-                  disabled={isLoading}
-                  style={{ ...audioStyles.btn, ...audioStyles.btnPrimary, ...(isLoading ? audioStyles.btnOff : {}) }}
-                >
-                  {isLoading ? '…' : isPaused ? `▶ ${labels.resume}` : `▶ ${labels.listen}`}
-                </button>
-              ) : (
-                <button type="button" onClick={pause} style={audioStyles.btn}>
-                  ❚❚ {labels.pause}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={stop}
-                disabled={state === 'idle'}
-                style={{ ...audioStyles.btn, ...(state === 'idle' ? audioStyles.btnOff : {}) }}
-              >
-                ■ {labels.stop}
-              </button>
-            </div>
-
-            <div style={audioStyles.selectors}>
-              <label style={audioStyles.field}>
-                <span style={audioStyles.fieldLbl}>{labels.speed} · {rate.toFixed(2)}×</span>
-                <input
-                  type="range"
-                  min="0.75"
-                  max="1.5"
-                  step="0.05"
-                  value={rate}
-                  onChange={(e) => setRate(parseFloat(e.target.value))}
-                  style={audioStyles.range}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div
-            style={audioStyles.seekOuter}
-            onClick={seek}
-            role="slider"
-            aria-valuemin={0}
-            aria-valuemax={1}
-            aria-valuenow={progress}
+    <>
+      <div style={audioStyles.row}>
+        <div style={audioStyles.controls}>
+          {!isPlaying ? (
+            <button
+              type="button"
+              onClick={play}
+              disabled={isLoading}
+              style={{ ...audioStyles.btn, ...audioStyles.btnPrimary, ...(isLoading ? audioStyles.btnOff : {}) }}
+            >
+              {isLoading ? '…' : isPaused ? `▶ ${labels.resume}` : `▶ ${labels.listen}`}
+            </button>
+          ) : (
+            <button type="button" onClick={pause} style={audioStyles.btn}>
+              ❚❚ {labels.pause}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={stop}
+            disabled={state === 'idle'}
+            style={{ ...audioStyles.btn, ...(state === 'idle' ? audioStyles.btnOff : {}) }}
           >
-            <div style={{ ...audioStyles.seekInner, width: `${Math.round(progress * 100)}%` }} />
-          </div>
+            ■ {labels.stop}
+          </button>
+        </div>
+        <div style={audioStyles.selectors}>
+          <label style={audioStyles.field}>
+            <span style={audioStyles.fieldLbl}>{labels.speed} · {rate.toFixed(2)}×</span>
+            <input
+              type="range"
+              min="0.75"
+              max="1.5"
+              step="0.05"
+              value={rate}
+              onChange={(e) => setRate(parseFloat(e.target.value))}
+              style={audioStyles.range}
+            />
+          </label>
+        </div>
+      </div>
 
-          {errorMsg ? <div style={audioStyles.err}>{errorMsg}</div> : null}
-          {isLoading ? <div style={audioStyles.hint}>Generando audio la primera vez puede tardar unos segundos…</div> : null}
+      <div
+        style={audioStyles.seekOuter}
+        onClick={seek}
+        role="slider"
+        aria-valuemin={0}
+        aria-valuemax={1}
+        aria-valuenow={progress}
+      >
+        <div style={{ ...audioStyles.seekInner, width: `${Math.round(progress * 100)}%` }} />
+      </div>
+
+      {duration ? (
+        <div style={audioStyles.hint}>
+          {fmt((audioRef.current?.currentTime) || 0)} / {fmt(duration)}
         </div>
       ) : null}
-    </div>
+
+      {errorMsg ? <div style={audioStyles.err}>{errorMsg}</div> : null}
+      {isLoading ? <div style={audioStyles.hint}>{labels.audioLoadingFirst}</div> : null}
+    </>
+  );
+}
+
+function BrowserEngine({ title, paragraphs, lang, labels }) {
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  const supported = !!synth;
+  const [voices, setVoices] = useState([]);
+  const [voiceURI, setVoiceURI] = useState('');
+  const [rate, setRate] = useState(1);
+  const [state, setState] = useState('idle'); // idle | playing | paused
+  const [current, setCurrent] = useState(0);
+  const indexRef = useRef(0);
+  const stoppedRef = useRef(false);
+
+  const chunks = useMemo(() => {
+    const parts = [];
+    if (title) parts.push(title);
+    for (const p of paragraphs || []) if (p) parts.push(p);
+    return parts;
+  }, [title, paragraphs]);
+
+  useEffect(() => {
+    if (!supported) return;
+    const load = () => {
+      const all = synth.getVoices();
+      const want = lang === 'es' ? 'es' : 'en';
+      const matched = all.filter((v) => v.lang && v.lang.toLowerCase().startsWith(want));
+      const list = matched.length ? matched : all;
+      setVoices(list);
+      setVoiceURI((prev) => {
+        if (prev && list.some((v) => v.voiceURI === prev)) return prev;
+        const def = list.find((v) => v.default) || list[0];
+        return def ? def.voiceURI : '';
+      });
+    };
+    load();
+    synth.addEventListener('voiceschanged', load);
+    return () => synth.removeEventListener('voiceschanged', load);
+  }, [lang, supported, synth]);
+
+  useEffect(() => () => { if (synth) synth.cancel(); }, [synth]);
+
+  function speakFrom(i) {
+    if (!supported) return;
+    if (i >= chunks.length) { setState('idle'); setCurrent(0); indexRef.current = 0; return; }
+    const u = new SpeechSynthesisUtterance(chunks[i]);
+    const voice = voices.find((v) => v.voiceURI === voiceURI);
+    if (voice) u.voice = voice;
+    u.lang = voice?.lang || (lang === 'es' ? 'es-ES' : 'en-US');
+    u.rate = rate;
+    u.pitch = 1;
+    u.onend = () => {
+      if (stoppedRef.current) return;
+      const next = indexRef.current + 1;
+      indexRef.current = next;
+      setCurrent(next);
+      speakFrom(next);
+    };
+    u.onerror = () => setState('idle');
+    synth.speak(u);
+  }
+
+  function play() {
+    if (!supported) return;
+    if (state === 'paused') { synth.resume(); setState('playing'); return; }
+    stoppedRef.current = false;
+    synth.cancel();
+    indexRef.current = 0;
+    setCurrent(0);
+    setState('playing');
+    speakFrom(0);
+  }
+
+  function pause() {
+    if (!supported || state !== 'playing') return;
+    synth.pause();
+    setState('paused');
+  }
+
+  function stop() {
+    if (!supported) return;
+    stoppedRef.current = true;
+    synth.cancel();
+    setState('idle');
+    indexRef.current = 0;
+    setCurrent(0);
+  }
+
+  if (!supported) {
+    return <div style={audioStyles.unsupported}>{labels.unsupported}</div>;
+  }
+
+  const isPlaying = state === 'playing';
+  const isPaused = state === 'paused';
+  const progress = chunks.length ? current / chunks.length : 0;
+
+  return (
+    <>
+      <div style={audioStyles.row}>
+        <div style={audioStyles.controls}>
+          {!isPlaying ? (
+            <button
+              type="button"
+              onClick={play}
+              style={{ ...audioStyles.btn, ...audioStyles.btnPrimary }}
+            >
+              {isPaused ? `▶ ${labels.resume}` : `▶ ${labels.listen}`}
+            </button>
+          ) : (
+            <button type="button" onClick={pause} style={audioStyles.btn}>
+              ❚❚ {labels.pause}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={stop}
+            disabled={state === 'idle'}
+            style={{ ...audioStyles.btn, ...(state === 'idle' ? audioStyles.btnOff : {}) }}
+          >
+            ■ {labels.stop}
+          </button>
+        </div>
+        <div style={audioStyles.selectors}>
+          <label style={audioStyles.field}>
+            <span style={audioStyles.fieldLbl}>{labels.voice}</span>
+            <select
+              value={voiceURI}
+              onChange={(e) => setVoiceURI(e.target.value)}
+              style={audioStyles.select}
+            >
+              {voices.map((v) => (
+                <option key={v.voiceURI} value={v.voiceURI}>
+                  {v.name} — {v.lang}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={audioStyles.field}>
+            <span style={audioStyles.fieldLbl}>{labels.speed} · {rate.toFixed(2)}×</span>
+            <input
+              type="range"
+              min="0.75"
+              max="1.5"
+              step="0.05"
+              value={rate}
+              onChange={(e) => setRate(parseFloat(e.target.value))}
+              style={audioStyles.range}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div style={audioStyles.seekOuter}>
+        <div style={{ ...audioStyles.seekInner, width: `${Math.round(progress * 100)}%` }} />
+      </div>
+
+      {state !== 'idle' ? (
+        <div style={audioStyles.status}>
+          {isPlaying ? labels.playing : labels.pause} · {labels.para} {Math.min(current + 1, chunks.length)} / {chunks.length}
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -1027,6 +1238,10 @@ const audioStyles = {
   toggleStatus: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#6b6860', textTransform: 'uppercase' },
   toggleChev: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6b6860' },
   panel: { border: '1px solid #2a2a35', borderTop: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: '#0f0f16' },
+  engineRow: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
+  engineToggle: { display: 'flex', border: '1px solid #2a2a35' },
+  engineBtn: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#b8b5ad', background: 'transparent', border: 0, padding: '8px 14px', cursor: 'pointer' },
+  engineBtnActive: { background: '#e8b84a', color: '#0a0a0f' },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' },
   controls: { display: 'flex', gap: 8 },
   btn: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#f5f3ee', background: 'transparent', border: '1px solid #3a3832', padding: '10px 14px', cursor: 'pointer' },

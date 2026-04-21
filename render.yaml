@@ -17,9 +17,17 @@ services:
         value: 20.18.0
       - key: DATABASE_URL
         value: file:/var/data/cfia.db
+      - key: AUDIO_CACHE_DIR
+        value: /var/data/audio-cache
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: CREATE_PASSWORD
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: ELEVENLABS_MODEL_ID
         sync: false

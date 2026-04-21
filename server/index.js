@@ -966,7 +966,7 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
   }
 });
 
-const AUDIO_CACHE_DIR = path.join(ROOT, 'audio-cache');
+const AUDIO_CACHE_DIR = process.env.AUDIO_CACHE_DIR || path.join(ROOT, 'audio-cache');
 if (!fs.existsSync(AUDIO_CACHE_DIR)) fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
 
 const audioInflight = new Map();
