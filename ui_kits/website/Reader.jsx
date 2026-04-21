@@ -170,6 +170,8 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
           </div>
         </div>
 
+        <StoryUniverseMap story={story} lang={lang} onOpen={onOpen} />
+
         <RelatedStories story={story} lang={lang} t={t} onOpen={onOpen} />
 
         <ExpandPanel story={story} lang={lang} t={t} onCreated={onCreated} />
@@ -177,6 +179,73 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
     </div>
   );
 }
+
+function findUniverseTree(universes, slug) {
+  const containsSlug = (node) => {
+    if (node.slug === slug) return true;
+    return (node.children || []).some(containsSlug);
+  };
+  for (const u of universes) {
+    if (containsSlug(u.root)) return u;
+  }
+  return null;
+}
+
+function StoryUniverseMap({ story, lang, onOpen }) {
+  const [tree, setTree] = useState(null);
+  const UniverseCosmos = window.UniverseCosmos;
+
+  useEffect(() => {
+    let alive = true;
+    setTree(null);
+    fetch('/api/universes')
+      .then((r) => r.ok ? r.json() : { universes: [] })
+      .then((data) => {
+        if (!alive) return;
+        const match = findUniverseTree(data.universes || [], story.slug);
+        setTree(match);
+      })
+      .catch(() => { if (alive) setTree(null); });
+    return () => { alive = false; };
+  }, [story.slug]);
+
+  if (!tree || !UniverseCosmos) return null;
+
+  const universeName = story.universe?.name?.[lang] || story.universe?.name?.es
+    || tree.root.title?.[lang] || tree.root.title?.es;
+  const label = lang === 'es' ? 'UNIVERSO' : 'UNIVERSE';
+  const hint = lang === 'es'
+    ? 'Cuentos del mismo hilo. Clic para seguir leyendo.'
+    : 'Stories from the same thread. Click to keep reading.';
+  const totalLbl = lang === 'es' ? `${tree.total} NODOS` : `${tree.total} NODES`;
+
+  return (
+    <>
+      <hr style={rdStyles.sepHair} />
+      <section style={universeMapStyles.wrap}>
+        <div style={universeMapStyles.head}>
+          <span style={universeMapStyles.label}>◼ {label}</span>
+          <span style={universeMapStyles.name}>{universeName}</span>
+          <span style={universeMapStyles.total}>{totalLbl}</span>
+        </div>
+        <div style={universeMapStyles.hint}>{hint}</div>
+        <div style={universeMapStyles.canvas}>
+          <UniverseCosmos root={tree.root} lang={lang} onOpen={onOpen} currentSlug={story.slug} />
+        </div>
+      </section>
+    </>
+  );
+}
+
+const universeMapStyles = {
+  wrap: { display: 'flex', flexDirection: 'column', gap: 12, padding: '24px 0' },
+  head: { display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' },
+  label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a', textTransform: 'uppercase' },
+  name: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: '#f5f3ee', letterSpacing: '-0.01em', flex: 1, minWidth: 160 },
+  total: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#6b6860', textTransform: 'uppercase' },
+  hint: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#b8b5ad' },
+  canvas: { border: '1px solid #1a1a22', background: '#050508' },
+};
 
 function RelatedStories({ story, lang, t, onOpen }) {
   const [items, setItems] = useState(null);

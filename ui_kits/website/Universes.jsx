@@ -246,7 +246,7 @@ function layoutCosmos(root) {
     const r = depth === 0 ? 0 : depth * RING_GAP;
     const x = CENTER + Math.cos(mid) * r;
     const y = CENTER + Math.sin(mid) * r;
-    nodes.push({ slug: node.slug, num: node.num, title: node.title, x, y, depth, angle: mid, parentSlug });
+    nodes.push({ slug: node.slug, num: node.num, title: node.title, excerpt: node.excerpt, x, y, depth, angle: mid, parentSlug });
 
     const children = node.children || [];
     if (children.length > 0) {
@@ -281,9 +281,10 @@ function seededRand(seed) {
   };
 }
 
-function UniverseCosmos({ root, lang, onOpen }) {
+function UniverseCosmos({ root, lang, onOpen, currentSlug }) {
   const [hover, setHover] = useState(null);
   const layout = useMemo(() => layoutCosmos(root), [root]);
+  const active = hover || currentSlug || null;
 
   const stars = useMemo(() => {
     const rand = seededRand(root.slug);
@@ -300,16 +301,16 @@ function UniverseCosmos({ root, lang, onOpen }) {
   }, [root.slug, layout.size]);
 
   const ancestorPath = useMemo(() => {
-    if (!hover) return new Set();
+    if (!active) return new Set();
     const path = new Set();
     const byId = new Map(layout.nodes.map((n) => [n.slug, n]));
-    let cur = byId.get(hover);
+    let cur = byId.get(active);
     while (cur) {
       path.add(cur.slug);
       cur = cur.parentSlug ? byId.get(cur.parentSlug) : null;
     }
     return path;
-  }, [hover, layout.nodes]);
+  }, [active, layout.nodes]);
 
   const edgeHighlighted = (e) => ancestorPath.has(e.from) && ancestorPath.has(e.to);
   const viewBox = `0 0 ${layout.size} ${layout.size}`;
@@ -357,13 +358,14 @@ function UniverseCosmos({ root, lang, onOpen }) {
               x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
               stroke={hi ? '#e8b84a' : '#3a3832'}
               strokeWidth={hi ? 1.4 : 0.8}
-              opacity={hover && !hi ? 0.25 : 0.75}
+              opacity={active && !hi ? 0.25 : 0.75}
             />
           );
         })}
 
         {layout.nodes.map((n) => {
           const isHovered = hover === n.slug;
+          const isCurrent = currentSlug === n.slug;
           const onPath = ancestorPath.has(n.slug);
           const color = onPath ? '#e8b84a' : '#b8b5ad';
           const isRoot = n.depth === 0;
@@ -386,10 +388,16 @@ function UniverseCosmos({ root, lang, onOpen }) {
               onMouseLeave={() => setHover(null)}
               onClick={() => onOpen(n.slug)}
             >
-              {(isRoot || isHovered) && (
-                <circle cx={n.x} cy={n.y} r={r * 4} fill="url(#starGlow)" opacity={isHovered ? 0.9 : 0.6} />
+              {(isRoot || isHovered || isCurrent) && (
+                <circle cx={n.x} cy={n.y} r={r * 4} fill="url(#starGlow)" opacity={isHovered || isCurrent ? 0.9 : 0.6} />
               )}
-              <circle cx={n.x} cy={n.y} r={r} fill={color} opacity={hover && !onPath ? 0.3 : 1}>
+              {isCurrent && (
+                <circle cx={n.x} cy={n.y} r={r * 2.2} fill="none" stroke="#e8b84a" strokeWidth="1.2" opacity="0.85">
+                  <animate attributeName="r" values={`${r * 2};${r * 2.8};${r * 2}`} dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.9;0.4;0.9" dur="2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              <circle cx={n.x} cy={n.y} r={isCurrent && !isRoot ? r * 1.6 : r} fill={color} opacity={active && !onPath ? 0.3 : 1}>
                 {isRoot && <animate attributeName="r" values={`${r};${r * 1.3};${r}`} dur="2.8s" repeatCount="indefinite" />}
                 {isRoot && <animate attributeName="opacity" values="1;0.7;1" dur="2.8s" repeatCount="indefinite" />}
               </circle>
@@ -400,12 +408,12 @@ function UniverseCosmos({ root, lang, onOpen }) {
                 fontSize={isRoot ? '10' : '8'}
                 fill={color}
                 textAnchor={textAnchor}
-                opacity={hover && !onPath ? 0.25 : 1}
+                opacity={active && !onPath ? 0.25 : 1}
                 style={{ letterSpacing: '0.14em' }}
               >
                 {String(n.num).padStart(3, '0')}
               </text>
-              {(isRoot || isHovered) && (
+              {(isRoot || isHovered || isCurrent) && (
                 <text
                   x={lx + dx}
                   y={ly + dy + (isRoot ? -12 : 10)}
@@ -413,7 +421,7 @@ function UniverseCosmos({ root, lang, onOpen }) {
                   fontSize={isRoot ? '13' : '10'}
                   fill={onPath ? '#f5f3ee' : '#b8b5ad'}
                   textAnchor={textAnchor}
-                  opacity={hover && !onPath ? 0.25 : 1}
+                  opacity={active && !onPath ? 0.25 : 1}
                 >
                   {truncate(title, isRoot ? 36 : 24)}
                 </text>
@@ -421,10 +429,46 @@ function UniverseCosmos({ root, lang, onOpen }) {
             </g>
           );
         })}
+
+        {hover ? (() => {
+          const n = layout.nodes.find((x) => x.slug === hover);
+          if (!n) return null;
+          const W = 260;
+          const H = 120;
+          const pad = 12;
+          let tx = n.x + 16;
+          let ty = n.y - H / 2;
+          if (tx + W > layout.size - pad) tx = n.x - W - 16;
+          if (ty < pad) ty = pad;
+          if (ty + H > layout.size - pad) ty = layout.size - H - pad;
+          const title = n.title?.[lang] || n.title?.es;
+          const excerpt = n.excerpt?.[lang] || n.excerpt?.es || '';
+          return (
+            <foreignObject x={tx} y={ty} width={W} height={H} style={{ pointerEvents: 'none' }}>
+              <div xmlns="http://www.w3.org/1999/xhtml" style={tooltipStyles.box}>
+                <div style={tooltipStyles.head}>
+                  <span style={tooltipStyles.num}>{String(n.num).padStart(3, '0')}</span>
+                  {n.depth === 0 ? <span style={tooltipStyles.rootTag}>{lang === 'es' ? 'RAÍZ' : 'ROOT'}</span> : null}
+                </div>
+                <div style={tooltipStyles.title}>{truncate(title, 60)}</div>
+                {excerpt ? <div style={tooltipStyles.excerpt}>{truncate(excerpt, 140)}</div> : null}
+              </div>
+            </foreignObject>
+          );
+        })() : null}
       </svg>
     </div>
   );
 }
+
+const tooltipStyles = {
+  box: { background: 'rgba(10,10,15,0.95)', border: '1px solid #e8b84a', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' },
+  head: { display: 'flex', alignItems: 'center', gap: 8 },
+  num: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.16em', color: '#e8b84a' },
+  rootTag: { fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', color: '#0a0a0f', background: '#e8b84a', padding: '2px 6px' },
+  title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, lineHeight: 1.25, color: '#f5f3ee' },
+  excerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 12, lineHeight: 1.4, color: '#b8b5ad' },
+};
 
 function UniverseCosmosMini({ root, lang }) {
   const [hover, setHover] = useState(null);
@@ -549,9 +593,45 @@ function UniverseCosmosMini({ root, lang }) {
           </g>
         );
       })}
+
+      {hover ? (() => {
+        const n = layout.nodes.find((x) => x.slug === hover);
+        if (!n) return null;
+        const W = 300;
+        const H = 130;
+        const pad = 10;
+        let tx = n.x + 14;
+        let ty = n.y - H / 2;
+        if (tx + W > layout.size - pad) tx = n.x - W - 14;
+        if (ty < pad) ty = pad;
+        if (ty + H > layout.size - pad) ty = layout.size - H - pad;
+        const title = n.title?.[lang] || n.title?.es;
+        const excerpt = n.excerpt?.[lang] || n.excerpt?.es || '';
+        return (
+          <foreignObject x={tx} y={ty} width={W} height={H} style={{ pointerEvents: 'none' }}>
+            <div xmlns="http://www.w3.org/1999/xhtml" style={miniTooltipStyles.box}>
+              <div style={miniTooltipStyles.head}>
+                <span style={miniTooltipStyles.num}>{String(n.num).padStart(3, '0')}</span>
+                {n.depth === 0 ? <span style={miniTooltipStyles.rootTag}>{lang === 'es' ? 'RAÍZ' : 'ROOT'}</span> : null}
+              </div>
+              <div style={miniTooltipStyles.title}>{truncate(title, 60)}</div>
+              {excerpt ? <div style={miniTooltipStyles.excerpt}>{truncate(excerpt, 140)}</div> : null}
+            </div>
+          </foreignObject>
+        );
+      })() : null}
     </svg>
   );
 }
+
+const miniTooltipStyles = {
+  box: { background: 'rgba(10,10,15,0.95)', border: '1px solid #e8b84a', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 5 },
+  head: { display: 'flex', alignItems: 'center', gap: 8 },
+  num: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.16em', color: '#e8b84a' },
+  rootTag: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: '#0a0a0f', background: '#e8b84a', padding: '2px 6px' },
+  title: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, lineHeight: 1.25, color: '#f5f3ee' },
+  excerpt: { fontFamily: "'Instrument Serif', serif", fontSize: 13, lineHeight: 1.4, color: '#b8b5ad' },
+};
 
 function truncate(s, max) {
   if (!s) return '';
@@ -615,3 +695,4 @@ const styles = {
 
 window.Universes = Universes;
 window.UniverseCosmosMini = UniverseCosmosMini;
+window.UniverseCosmos = UniverseCosmos;

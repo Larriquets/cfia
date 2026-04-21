@@ -248,7 +248,7 @@ const homeStyles = {
   tileTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: '#f5f3ee', letterSpacing: '-0.01em', lineHeight: 1.15, fontWeight: 500, margin: 0 },
   tileTags: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.12em', color: '#b8b5ad' },
   tileFoot: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  cosmosGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 },
+  cosmosGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20 },
   cosmosTile: { background: '#050508', border: '1px solid #2a2a35', display: 'flex', flexDirection: 'column', cursor: 'pointer', overflow: 'hidden', transition: 'border-color 120ms' },
   cosmosCanvas: { width: '100%', aspectRatio: '1 / 1', background: '#050508' },
   cosmosMeta: { display: 'flex', flexDirection: 'column', gap: 6, padding: 14, borderTop: '1px solid #2a2a35' },
