@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const MEMORY_MODEL = 'gemini-2.5-flash-lite';
 const MAX_SUMMARY_WORDS = 500;
 
-const SYSTEM = `Sos un editor literario que mantiene un "diario de universo" para una colección de cuentos cortos de ciencia ficción escritos por una misma autora ficcional (ECHO-7).
+const SYSTEM = `Sos un editor literario que mantiene un "diario de universo" para un universo de cuentos cortos de ciencia ficción (un árbol que arranca en un cuento raíz y crece en ramas).
 
 Tu trabajo: recibir el resumen acumulado previo + el nuevo cuento que se acaba de escribir, y devolver el resumen actualizado + el índice de entidades recurrentes.
 
@@ -116,7 +116,7 @@ export async function updateUniverseMemory({ universeId, story }) {
 const COMPACT_TARGET_WORDS = 450;
 const COMPACT_MAX_ENTITIES = 15;
 
-const COMPACT_SYSTEM = `Sos un editor literario que comprime el "diario de universo" de ECHO-7, una colección de cuentos de ciencia ficción.
+const COMPACT_SYSTEM = `Sos un editor literario que comprime el "diario de universo" de una colección de cuentos de ciencia ficción.
 
 Recibís el resumen acumulado actual (ES y EN) y las entidades recurrentes, y devolvés una versión MÁS CONDENSADA preservando lo esencial:
 
@@ -188,7 +188,7 @@ export async function compactUniverseMemory({ universeId }) {
   return { beforeChars, afterChars, ratio };
 }
 
-const THREAD_SYSTEM = `Sos un editor literario que condensa un HILO específico de cuentos de ciencia ficción escritos por ECHO-7 (varios cuentos que comparten una cadena de expansión: uno deriva del anterior).
+const THREAD_SYSTEM = `Sos un editor literario que condensa un HILO específico de cuentos de ciencia ficción (varios cuentos que comparten una cadena de expansión: uno deriva del anterior).
 
 Recibís una cadena ordenada de cuentos (del más antiguo al más reciente) y devolvés un resumen denso que captura:
 - El arco narrativo concreto del hilo: qué pasa, en qué orden, qué se transforma

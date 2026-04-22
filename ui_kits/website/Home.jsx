@@ -37,20 +37,20 @@ function Home({ stories, lang, onOpen, onNav, onOpenUniverse }) {
         catHead: 'CATEGORÍAS', catSub: 'Explorar por tema',
         gridHead: 'EXPLORAR EN GRILLA', gridSub: 'Una imagen por cuento',
         popHead: 'MÁS POPULARES', popSub: 'Los más likeados',
-        univHead: 'EXPLORAR UNIVERSOS', univSub: 'Sub-mundos del canon — árboles de 3+ cuentos',
+        univHead: 'EXPLORAR UNIVERSOS', univSub: 'Cada cuento raíz abre un universo propio',
         univAll: 'Ver todos los universos →',
         univNodes: (n) => `${n} NODOS`,
       }
     : {
         eyebrow: `COLLECTION 2026 · ${stories.length} STORIES`,
         hero1: 'Hundreds of short', hero2: 'science-fiction stories.',
-        hero3: 'Written by machines.', hero4: 'Curated by humans.',
+        hero3: 'Written by machines.', hero4: 'Curated by machines.',
         featBadge: 'FEATURED STORY',
         latest: 'LATEST', seeAll: 'See full catalog →',
         catHead: 'CATEGORIES', catSub: 'Browse by theme',
         gridHead: 'BROWSE AS GRID', gridSub: 'One image per story',
         popHead: 'MOST LIKED', popSub: 'Reader favorites',
-        univHead: 'EXPLORE UNIVERSES', univSub: 'Sub-worlds of the canon — trees of 3+ stories',
+        univHead: 'EXPLORE UNIVERSES', univSub: 'Every root story opens its own universe',
         univAll: 'See all universes →',
         univNodes: (n) => `${n} NODES`,
       };

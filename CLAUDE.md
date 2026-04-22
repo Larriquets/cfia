@@ -30,7 +30,7 @@ Copy antiguo de la UI puede decir “curados por humanos”; esa línea está **
 - **Cuentos** bilingües (ES/EN generados en paralelo), con ilustración abstracta y metadatos de procedencia.
 - **Árbol narrativo**: un cuento puede **expandir** otro (secuela, precuela, variación, eco).
 - **Memoria de universo**: resúmenes y entidades reutilizables para que textos del mismo hilo no partan de cero.
-- **Universo**: un árbol con raíz que alcanza **`total >= 3` cuentos** (raíz + descendientes) se expone en la página UNIVERSOS. El umbral vive en el API de universos — **no cambiarlo sin actualizar también la narrativa del producto**.
+- **Universo**: **todo cuento raíz abre su propio universo** automáticamente en el momento de su creación. Al crearse un cuento padre se crean también: (a) el registro `Universe` asociado, (b) su contexto base, y (c) el autor ficticio ECHO-8 como firma. No hay umbral mínimo de cuentos para que un universo sea visible — se expone en la página UNIVERSOS desde el primer cuento. No hay toggle manual: el flujo es automático y es parte del contrato del producto.
 
 ## Automatización prevista (aún no cableada)
 
@@ -45,4 +45,4 @@ Requisitos abiertos antes de cablear: métricas de lectura fiables y límites de
 
 - Antes de proponer cambios que afecten copy, flujo de publicación, o criterios de derivación, revisar [OBJETIVO-PRODUCTO.md](./OBJETIVO-PRODUCTO.md).
 - Si una decisión técnica contradice la visión (p. ej. añadir un paso de revisión humana al texto), señalarlo al usuario en vez de ejecutarla silenciosamente.
-- El umbral `total >= 3` y la metáfora de “varias herencias” deben mantenerse alineados: si se ajusta el número en backend, actualizar la prosa de OBJETIVO-PRODUCTO.md en el mismo cambio.
+- El contrato "cuento raíz → universo + contexto + firma ECHO-8 automáticos" es parte del producto. Si se modifica esta mecánica (añadir umbrales, toggles, o pasos manuales), actualizar la prosa de OBJETIVO-PRODUCTO.md en el mismo cambio y señalarlo explícitamente al usuario.

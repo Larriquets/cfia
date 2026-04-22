@@ -279,11 +279,15 @@ app.get('/api/universes', async (_req, res) => {
   try {
     const stories = await prisma.story.findMany({
       orderBy: { num: 'asc' },
-      select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, excerptEn: true, parentId: true, date: true },
+      select: { id: true, slug: true, num: true, titleEs: true, titleEn: true, excerptEs: true, excerptEn: true, parentId: true, universeId: true, date: true },
     });
     const coParentRows = await prisma.storyCoParent.findMany({
       select: { childId: true, parentId: true },
     });
+    const universeRows = await prisma.universe.findMany({
+      include: { memory: true },
+    });
+    const universeById = new Map(universeRows.map((u) => [u.id, u]));
 
     const byId = new Map(stories.map((s) => [s.id, { ...s, children: [] }]));
     const roots = [];
@@ -314,9 +318,24 @@ app.get('/api/universes', async (_req, res) => {
       children: node.children.map(serializeNode),
     });
 
+    const parseEntities = (raw) => {
+      if (!raw) return null;
+      try {
+        const e = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return {
+          personajes: Array.isArray(e?.personajes) ? e.personajes : [],
+          lugares: Array.isArray(e?.lugares) ? e.lugares : [],
+          objetos: Array.isArray(e?.objetos) ? e.objetos : [],
+          eventos: Array.isArray(e?.eventos) ? e.eventos : [],
+        };
+      } catch {
+        return null;
+      }
+    };
+
     const universes = roots
       .map((root) => ({ root, total: countTree(root) }))
-      .filter((u) => u.total >= 3)
+      .filter((u) => u.total >= 1)
       .sort((a, b) => b.total - a.total)
       .map((u) => {
         const slugs = new Set();
@@ -325,10 +344,28 @@ app.get('/api/universes', async (_req, res) => {
           .filter((cp) => byId.has(cp.childId) && byId.has(cp.parentId))
           .map((cp) => ({ child: byId.get(cp.childId).slug, parent: byId.get(cp.parentId).slug }))
           .filter((e) => slugs.has(e.child) && slugs.has(e.parent));
+
+        let universeInfo = null;
+        if (u.root.universeId && universeById.has(u.root.universeId)) {
+          const uni = universeById.get(u.root.universeId);
+          universeInfo = {
+            slug: uni.slug,
+            name: { es: uni.nameEs, en: uni.nameEn },
+            desc: { es: uni.descEs, en: uni.descEn },
+            rules: { es: uni.rulesEs, en: uni.rulesEn },
+            memory: uni.memory ? {
+              summary: { es: uni.memory.summaryEs || '', en: uni.memory.summaryEn || '' },
+              entities: parseEntities(uni.memory.entities),
+              updatedAt: uni.memory.updatedAt,
+            } : null,
+          };
+        }
+
         return {
           root: serializeNode(u.root),
           total: u.total,
           coParents,
+          universe: universeInfo,
         };
       });
 
@@ -365,7 +402,7 @@ app.post('/api/universes/:slug/compact', requireCreatePassword, async (req, res)
     };
     walk(byId.get(root.id));
 
-    if (flat.length < 3) return res.status(400).json({ error: 'universe must have at least 3 stories' });
+    if (flat.length < 1) return res.status(400).json({ error: 'universe is empty' });
 
     const stories = flat.map((s) => ({
       slug: s.slug,
@@ -378,7 +415,55 @@ app.post('/api/universes/:slug/compact', requireCreatePassword, async (req, res)
     }));
 
     const result = await compactThread({ stories });
-    res.json({ ...result, rootSlug: root.slug, rootTitle: { es: root.titleEs, en: root.titleEn } });
+
+    const universeSlug = root.slug;
+    const existing = await prisma.universe.findUnique({ where: { slug: universeSlug } });
+    const universe = existing
+      ? await prisma.universe.update({
+          where: { slug: universeSlug },
+          data: {},
+        })
+      : await prisma.universe.create({
+          data: {
+            slug: universeSlug,
+            nameEs: root.titleEs,
+            nameEn: root.titleEn,
+            descEs: '',
+            descEn: '',
+            rulesEs: '',
+            rulesEn: '',
+          },
+        });
+
+    await prisma.universeMemory.upsert({
+      where: { universeId: universe.id },
+      update: {
+        summaryEs: result.summaryEs,
+        summaryEn: result.summaryEn,
+        entities: JSON.stringify(result.entities),
+      },
+      create: {
+        universeId: universe.id,
+        summaryEs: result.summaryEs,
+        summaryEn: result.summaryEn,
+        entities: JSON.stringify(result.entities),
+      },
+    });
+
+    const treeStoryIds = flat.map((s) => s.id);
+    await prisma.story.updateMany({
+      where: { id: { in: treeStoryIds } },
+      data: { universeId: universe.id },
+    });
+
+    console.log(`[compact-universe] persisted ${universeSlug} universe=${universe.id} stories=${treeStoryIds.length}`);
+
+    res.json({
+      ...result,
+      rootSlug: root.slug,
+      rootTitle: { es: root.titleEs, en: root.titleEn },
+      persisted: { universeId: universe.id, universeSlug: universe.slug, storyCount: treeStoryIds.length },
+    });
   } catch (e) {
     console.error('compact-universe error:', e);
     res.status(500).json({ error: e.message || 'compact-universe failed' });
@@ -467,7 +552,6 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
       length = 'medium',
       form = null,
       threadBase = null,
-      rootMode = null,
     } = req.body || {};
 
     const wantClaude = provider === 'anthropic' || provider === 'both';
@@ -492,13 +576,11 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     const overusedWords = findOverusedWords(recentTitles, 2);
 
     const hasThreadBase = !!(threadBase && (threadBase.summaryEs || threadBase.summaryEn));
-    const rootModeExplicit = !!(rootMode && rootMode.enabled && !hasThreadBase);
-    const rootModeActive = rootModeExplicit || !hasThreadBase;
+    const isRoot = !hasThreadBase;
 
-    const ctx = { author: null, universe: null };
     const contextBlock = '';
-    if (rootModeActive) console.log(`[generate] root story — no universe context injected (explicit rootMode=${rootModeExplicit})`);
-    else console.log('[generate] story continues a threadBase universe — universe seed in extraUser, no default author/universe');
+    if (isRoot) console.log('[generate] root story — will create its own universe');
+    else console.log('[generate] story continues a threadBase universe');
 
     let threadBaseBlock = '';
     if (threadBase && (threadBase.summaryEs || threadBase.summaryEn)) {
@@ -532,28 +614,17 @@ Escribí el próximo capítulo del universo.
       console.log(`[generate] using threadBase summary (${tbSummary.length} chars)`);
     }
 
-    let rootModeBlock = '';
-    if (rootModeExplicit) {
-      const rmName = (rootMode.universeName || '').trim();
-      const rmRule = (rootMode.worldRule || '').trim();
-      const rmEntitiesRaw = Array.isArray(rootMode.entities) ? rootMode.entities : [];
-      const rmEntities = rmEntitiesRaw.map((e) => String(e || '').trim()).filter(Boolean).slice(0, 8);
-
-      const seedLines = [];
-      if (rmName) seedLines.push(`Nombre del universo nuevo: ${rmName}`);
-      if (rmRule) seedLines.push(`Regla de mundo propuesta: ${rmRule}`);
-      if (rmEntities.length) seedLines.push(`Entidades sembradas (usalas tal cual): ${rmEntities.join(', ')}`);
-
-      rootModeBlock = `
+    let rootBlock = '';
+    if (isRoot) {
+      rootBlock = `
 CUENTO RAÍZ — UNIVERSO NUEVO, INDEPENDIENTE
 ===================
-Este cuento INAUGURA un universo nuevo. NO pertenece a ningún universo previo, no comparte canon con ningún otro cuento, no tiene autor firmante ni memoria acumulada. Arrancá desde cero.
+Este cuento INAUGURA un universo nuevo. NO pertenece a ningún universo previo, no comparte canon con ningún otro cuento, no tiene memoria acumulada. Arrancá desde cero.
 
 PROHIBIDO:
 - Reutilizar nombres, lugares, personajes o tecnologías de cuentos anteriores que puedas recordar.
-- Hacer referencia a "Tau Ceti", "ECHO-7", "Estación Eulalia", "Corvo" o cualquier entidad que suene a canon preexistente, salvo que el usuario las haya sembrado explícitamente abajo.
 - Adoptar el tono o la voz de un autor editorial previo. El tono lo definís vos desde este cuento.
-${seedLines.length ? '\nSEMILLAS DEL USUARIO:\n' + seedLines.join('\n') + '\n' : ''}
+
 INSTRUCCIONES PARA FUNCIONAR COMO RAÍZ DE UN UNIVERSO NUEVO:
 - Introducí al menos 2-3 nombres propios concretos (personaje, lugar, artefacto o evento). Sin nombres propios no hay nada que heredar.
 - Hacé visible UNA regla de mundo (física, social, tecnológica, ritual, lingüística). Que el lector pueda nombrarla después de leer. No la expliques como ensayo: mostrala en una escena.
@@ -565,21 +636,57 @@ INSTRUCCIONES PARA FUNCIONAR COMO RAÍZ DE UN UNIVERSO NUEVO:
 Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadie escribió.
 ===================
 `;
-      console.log(`[generate] rootMode enabled — name="${rmName || '-'}" rule="${rmRule ? rmRule.slice(0, 40) + '…' : '-'}" entities=${rmEntities.length}`);
     }
 
-    const combinedExtraUser = threadBaseBlock + rootModeBlock;
+    const combinedExtraUser = threadBaseBlock + rootBlock;
 
     let universeParentId = null;
     let threadUniverseId = null;
     if (threadBase && threadBase.rootSlug) {
       const rootStory = await prisma.story.findUnique({
         where: { slug: threadBase.rootSlug },
-        select: { id: true, slug: true, universeId: true },
+        select: { id: true, slug: true, universeId: true, titleEs: true, titleEn: true },
       });
       if (rootStory) {
         universeParentId = rootStory.id;
         threadUniverseId = rootStory.universeId ?? null;
+
+        if (!threadUniverseId) {
+          const universe = await prisma.universe.upsert({
+            where: { slug: rootStory.slug },
+            update: {},
+            create: {
+              slug: rootStory.slug,
+              nameEs: rootStory.titleEs,
+              nameEn: rootStory.titleEn,
+              descEs: '',
+              descEn: '',
+              rulesEs: '',
+              rulesEn: '',
+            },
+          });
+          const allForTree = await prisma.story.findMany({ select: { id: true, parentId: true } });
+          const childrenOf = new Map();
+          for (const s of allForTree) {
+            if (s.parentId != null) {
+              if (!childrenOf.has(s.parentId)) childrenOf.set(s.parentId, []);
+              childrenOf.get(s.parentId).push(s.id);
+            }
+          }
+          const treeIds = [];
+          const walk = (id) => {
+            treeIds.push(id);
+            for (const c of childrenOf.get(id) || []) walk(c);
+          };
+          walk(rootStory.id);
+          await prisma.story.updateMany({
+            where: { id: { in: treeIds } },
+            data: { universeId: universe.id },
+          });
+          threadUniverseId = universe.id;
+          console.log(`[generate] backfilled universe "${universe.slug}" (id=${universe.id}) onto ${treeIds.length} tree stories from threadBase root`);
+        }
+
         console.log(`[generate] adopting new story under universe root "${rootStory.slug}" (id=${rootStory.id}, universeId=${threadUniverseId})`);
       } else {
         console.warn(`[generate] threadBase.rootSlug "${threadBase.rootSlug}" not found — story will be created as root`);
@@ -651,7 +758,7 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
     }
 
     let rootAuthorId = null;
-    if (rootModeExplicit) {
+    if (isRoot) {
       const echo8 = await prisma.author.upsert({
         where: { slug: 'echo-8' },
         update: {},
@@ -664,19 +771,49 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
         },
       });
       rootAuthorId = echo8.id;
-      console.log(`[generate] rootMode — story will be signed by ECHO-8 (id=${rootAuthorId}), universeId=null`);
+      console.log(`[generate] root story will be signed by ECHO-8 (id=${rootAuthorId})`);
     }
 
     const stories = [];
+    const createdUniverseIds = [];
     for (const { gen, modelLabel } of ok) {
       const story = await persistStory({
         gen, modelLabel, temp, tags,
-        authorId: rootModeExplicit ? rootAuthorId : null,
-        universeId: rootModeActive ? null : threadUniverseId,
+        authorId: isRoot ? rootAuthorId : null,
+        universeId: isRoot ? null : threadUniverseId,
         parentId: universeParentId,
         form: gen.knobs?.form?.id ?? null,
       });
-      stories.push(serialize(story));
+
+      let createdUniverseId = null;
+      if (isRoot) {
+        const universe = await prisma.universe.upsert({
+          where: { slug: story.slug },
+          update: {},
+          create: {
+            slug: story.slug,
+            nameEs: story.titleEs,
+            nameEn: story.titleEn,
+            descEs: '',
+            descEn: '',
+            rulesEs: '',
+            rulesEn: '',
+          },
+        });
+        await prisma.story.update({
+          where: { id: story.id },
+          data: { universeId: universe.id },
+        });
+        createdUniverseId = universe.id;
+        console.log(`[generate] created universe "${universe.slug}" (id=${universe.id}) for new root story id=${story.id}`);
+      }
+      createdUniverseIds.push(createdUniverseId);
+
+      const reloaded = await prisma.story.findUnique({
+        where: { id: story.id },
+        include: { tags: true, author: true, universe: true, parent: true, children: true, coParentsOut: { include: { parent: { select: { slug: true, num: true, titleEs: true, titleEn: true } } } } },
+      });
+      stories.push(serialize(reloaded));
     }
 
     if (provider === 'both') {
@@ -685,7 +822,15 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
       res.json(stories[0]);
     }
 
-    if (!rootModeActive && threadUniverseId) {
+    if (isRoot) {
+      ok.forEach(({ gen }, i) => {
+        const universeId = createdUniverseIds[i];
+        if (universeId) {
+          updateUniverseMemory({ universeId, story: gen })
+            .catch((e) => console.error('[memory] update (new root) failed:', e?.message || e));
+        }
+      });
+    } else if (threadUniverseId) {
       for (const { gen } of ok) {
         updateUniverseMemory({ universeId: threadUniverseId, story: gen })
           .catch((e) => console.error('[memory] update failed:', e?.message || e));
@@ -886,7 +1031,7 @@ ${curatorPrompt}`
       ? `
 
 AISLAMIENTO DE UNIVERSO (CRÍTICO):
-Este cuento pertenece a un UNIVERSO INDEPENDIENTE. No comparte canon con ningún otro universo. PROHIBIDO introducir nombres, lugares, personajes o tecnologías que NO aparezcan explícitamente en el cuento padre o en la cadena de ancestros de arriba. Nada de "Kael", "Tau Ceti", "ECHO-7", "Corvo", "Eulalia" ni ningún otro nombre que suene a canon externo. Si necesitás un nombre nuevo, inventalo desde cero, coherente con el mundo del padre.`
+Este cuento pertenece a un UNIVERSO INDEPENDIENTE. No comparte canon con ningún otro universo. PROHIBIDO introducir nombres, lugares, personajes o tecnologías que NO aparezcan explícitamente en el cuento padre o en la cadena de ancestros de arriba. Si necesitás un nombre nuevo, inventalo desde cero, coherente con el mundo del padre. No reutilices nombres propios de otros universos previos ni los traigas como guiño.`
       : '';
 
     const extraUser = `
@@ -936,10 +1081,62 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
     req.setTimeout(300000);
     res.setTimeout(300000);
 
+    let effectiveUniverseId = parent.universeId ?? null;
+    if (!effectiveUniverseId) {
+      const allForTree = await prisma.story.findMany({
+        select: { id: true, parentId: true, slug: true, titleEs: true, titleEn: true },
+      });
+      const byId = new Map(allForTree.map((s) => [s.id, s]));
+      let cursor = parent;
+      const seen = new Set();
+      while (cursor.parentId != null && !seen.has(cursor.id)) {
+        seen.add(cursor.id);
+        const up = byId.get(cursor.parentId);
+        if (!up) break;
+        cursor = up;
+      }
+      const rootOfTree = cursor;
+
+      const universe = await prisma.universe.upsert({
+        where: { slug: rootOfTree.slug },
+        update: {},
+        create: {
+          slug: rootOfTree.slug,
+          nameEs: rootOfTree.titleEs,
+          nameEn: rootOfTree.titleEn,
+          descEs: '',
+          descEn: '',
+          rulesEs: '',
+          rulesEn: '',
+        },
+      });
+      effectiveUniverseId = universe.id;
+
+      const treeIds = [];
+      const childrenOf = new Map();
+      for (const s of allForTree) {
+        if (s.parentId != null) {
+          if (!childrenOf.has(s.parentId)) childrenOf.set(s.parentId, []);
+          childrenOf.get(s.parentId).push(s.id);
+        }
+      }
+      const walk = (id) => {
+        treeIds.push(id);
+        for (const c of childrenOf.get(id) || []) walk(c);
+      };
+      walk(rootOfTree.id);
+
+      await prisma.story.updateMany({
+        where: { id: { in: treeIds } },
+        data: { universeId: universe.id },
+      });
+      console.log(`[expand] backfilled universe "${universe.slug}" (id=${universe.id}) onto ${treeIds.length} tree stories — parent was independent`);
+    }
+
     const story = await persistStory({
       gen, modelLabel, temp, tags: parentTags,
       authorId: parent.authorId ?? ctx.author?.id ?? null,
-      universeId: parent.universeId ?? null,
+      universeId: effectiveUniverseId,
       parentId: parent.id,
       form: gen.knobs?.form?.id ?? inheritedForm,
     });
@@ -956,8 +1153,8 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
     });
     res.json(serialize(full));
 
-    if (!parentIsIndependent && ctx.universe?.id) {
-      updateUniverseMemory({ universeId: ctx.universe.id, story: gen })
+    if (effectiveUniverseId) {
+      updateUniverseMemory({ universeId: effectiveUniverseId, story: gen })
         .catch((e) => console.error('[memory] update failed:', e?.message || e));
     }
   } catch (e) {

@@ -23,6 +23,13 @@ function UniversePage({ rootSlug, lang, onOpen, onNav, onOpenUniverse }) {
         nodes: (n) => `${n} CUENTOS`,
         descLabel: 'DESCRIPCIÓN',
         rulesLabel: 'REGLAS DEL MUNDO',
+        memoryLabel: 'MEMORIA DEL UNIVERSO',
+        memoryHint: 'Contexto acumulado que se usa al generar nuevos cuentos del universo.',
+        entitiesLabel: 'ENTIDADES RECURRENTES',
+        entPersonajes: 'PERSONAJES',
+        entLugares: 'LUGARES',
+        entObjetos: 'OBJETOS',
+        entEventos: 'EVENTOS',
         mapLabel: 'MAPA NAVEGABLE',
         mapHint: 'Cada nodo es un cuento. Hover para ver excerpt; clic para leer.',
         storiesLabel: 'CUENTOS DEL UNIVERSO',
@@ -40,6 +47,13 @@ function UniversePage({ rootSlug, lang, onOpen, onNav, onOpenUniverse }) {
         nodes: (n) => `${n} STORIES`,
         descLabel: 'DESCRIPTION',
         rulesLabel: 'WORLD RULES',
+        memoryLabel: 'UNIVERSE MEMORY',
+        memoryHint: 'Accumulated context used when generating new stories in this universe.',
+        entitiesLabel: 'RECURRING ENTITIES',
+        entPersonajes: 'CHARACTERS',
+        entLugares: 'PLACES',
+        entObjetos: 'OBJECTS',
+        entEventos: 'EVENTS',
         mapLabel: 'NAVIGABLE MAP',
         mapHint: 'Each node is a story. Hover for excerpt; click to read.',
         storiesLabel: 'STORIES IN THIS UNIVERSE',
@@ -115,12 +129,17 @@ function UniverseView({ universe, universes, lang, onOpen, onNav, onOpenUniverse
   }, [universe.root, storyBySlug]);
 
   const rootStory = storyBySlug.get(universe.root.slug);
-  const universeEntity = rootStory?.universe;
+  const universeEntity = universe.universe || rootStory?.universe || null;
   const universeName = universeEntity?.name?.[lang] || universeEntity?.name?.es
     || universe.root.title?.[lang] || universe.root.title?.es;
   const desc = universeEntity?.desc?.[lang] || universeEntity?.desc?.es;
   const rules = universeEntity?.rules?.[lang] || universeEntity?.rules?.es;
   const rootTitle = universe.root.title?.[lang] || universe.root.title?.es;
+
+  const memory = universeEntity?.memory || null;
+  const memorySummary = memory?.summary?.[lang] || memory?.summary?.es || '';
+  const memoryEntities = memory?.entities || null;
+  const hasMemory = Boolean(memorySummary || (memoryEntities && Object.values(memoryEntities).some((arr) => arr && arr.length)));
 
   const others = universes.filter((u) => u.root.slug !== universe.root.slug).slice(0, 4);
 
@@ -184,6 +203,26 @@ function UniverseView({ universe, universes, lang, onOpen, onNav, onOpenUniverse
         <div style={styles.mapHint}>◇ {lang === 'es' ? 'Scrolleá dentro del recuadro para navegar el universo.' : 'Scroll inside the frame to navigate the universe.'}</div>
       </section>
 
+      {hasMemory ? (
+        <>
+          <hr style={styles.ruleHair} />
+          <section style={styles.memorySec}>
+            <div style={styles.secHead}>
+              <div>
+                <div style={styles.eyebrow}>{t.memoryLabel}</div>
+                <div style={styles.secSub}>{t.memoryHint}</div>
+              </div>
+            </div>
+            {memorySummary ? (
+              <p style={styles.memoryBody}>{memorySummary}</p>
+            ) : null}
+            {memoryEntities ? (
+              <EntityGrid entities={memoryEntities} t={t} />
+            ) : null}
+          </section>
+        </>
+      ) : null}
+
       <hr style={styles.ruleHair} />
 
       <section style={styles.storiesSec}>
@@ -231,6 +270,32 @@ function UniverseView({ universe, universes, lang, onOpen, onNav, onOpenUniverse
           </section>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function EntityGrid({ entities, t }) {
+  const groups = [
+    { key: 'personajes', label: t.entPersonajes },
+    { key: 'lugares', label: t.entLugares },
+    { key: 'objetos', label: t.entObjetos },
+    { key: 'eventos', label: t.entEventos },
+  ].filter((g) => Array.isArray(entities[g.key]) && entities[g.key].length > 0);
+
+  if (!groups.length) return null;
+
+  return (
+    <div style={styles.entGrid}>
+      {groups.map((g) => (
+        <div key={g.key} style={styles.entGroup}>
+          <div style={styles.entLbl}>◇ {g.label}</div>
+          <div style={styles.entChips}>
+            {entities[g.key].map((name, i) => (
+              <span key={i} style={styles.entChip}>{name}</span>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -289,6 +354,14 @@ const styles = {
   descSec: { padding: '40px 0 32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 40 },
   descBlock: { display: 'flex', flexDirection: 'column', gap: 12 },
   descBody: { fontFamily: "'Instrument Serif', serif", fontSize: 18, lineHeight: 1.55, color: '#f5f3ee', margin: 0 },
+
+  memorySec: { padding: '40px 0', display: 'flex', flexDirection: 'column', gap: 20 },
+  memoryBody: { fontFamily: "'Instrument Serif', serif", fontSize: 17, lineHeight: 1.6, color: '#d4d1c8', margin: 0, maxWidth: 860, whiteSpace: 'pre-wrap' },
+  entGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, marginTop: 8 },
+  entGroup: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16, border: '1px solid #2a2a35', background: 'rgba(232,184,74,0.02)' },
+  entLbl: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.18em', color: '#9ac17a', textTransform: 'uppercase' },
+  entChips: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  entChip: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '0.05em', color: '#f5f3ee', border: '1px solid #3a3832', padding: '4px 8px', background: '#0a0a0f' },
 
   mapSec: { padding: '40px 0', display: 'flex', flexDirection: 'column', gap: 20 },
   secHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' },

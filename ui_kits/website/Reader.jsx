@@ -28,7 +28,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         relatedTitle: 'SEGUIR LEYENDO',
         reason: { parent: 'CONTINÚA DE', child: 'EXPANDIDO EN', sibling: 'HERMANO', tag: 'TAGS AFINES', recent: 'RECIENTE' },
         expandTitle: 'EXPANDIR ESTE CUENTO',
-        expandHint: 'Pedile a ECHO-7 que escriba otro cuento que continúe, preceda o eche luz sobre este.',
+        expandHint: 'Pedile al modelo que escriba otro cuento que continúe, preceda o eche luz sobre este.',
         angleLabel: 'ÁNGULO',
         angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' },
         providerLabel: 'MOTOR',
@@ -42,7 +42,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         promptPh: 'Guiá la expansión: qué personaje seguir, qué pregunta abrir, qué tono, qué imagen…',
         lengthLabel: 'DURACIÓN',
         lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' },
-        ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7',
+        ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE EL MODELO',
         ctxToggleHide: '▾ OCULTAR CONTEXTO',
         ctxLoading: 'CARGANDO CONTEXTO · ',
         ctxAncestors: 'CADENA DE ANCESTROS',
@@ -82,7 +82,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         relatedTitle: 'KEEP READING',
         reason: { parent: 'CONTINUES FROM', child: 'EXPANDED IN', sibling: 'SIBLING', tag: 'RELATED TAGS', recent: 'RECENT' },
         expandTitle: 'EXPAND THIS STORY',
-        expandHint: 'Ask ECHO-7 to write another story that continues, precedes or sheds light on this one.',
+        expandHint: 'Ask the model to write another story that continues, precedes or sheds light on this one.',
         angleLabel: 'ANGLE',
         angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' },
         providerLabel: 'ENGINE',
@@ -96,7 +96,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         promptPh: 'Guide the expansion: which character to follow, what question to open, what tone, what image…',
         lengthLabel: 'LENGTH',
         lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' },
-        ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7',
+        ctxToggleShow: '▸ SHOW CONTEXT SENT TO THE MODEL',
         ctxToggleHide: '▾ HIDE CONTEXT',
         ctxLoading: 'LOADING CONTEXT · ',
         ctxAncestors: 'ANCESTOR CHAIN',
@@ -141,7 +141,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
           <div style={rdStyles.bylineStack}>
             <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>
               <span style={rdStyles.bylineLbl}>{t.by}</span>
-              <span style={rdStyles.bylineVal}>{story.author?.name || 'ECHO-7'}</span>
+              <span style={rdStyles.bylineVal}>{story.author?.name || 'ECHO-8'}</span>
             </div>
             {story.universe ? (
               <div className="cfia-rd-byline-row" style={rdStyles.bylineRow}>

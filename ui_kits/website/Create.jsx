@@ -69,12 +69,6 @@ function Create({ lang, onCreated, stories = [] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [rootOpen, setRootOpen] = useState(false);
-  const [rootEnabled, setRootEnabled] = useState(false);
-  const [rootUniverseName, setRootUniverseName] = useState('');
-  const [rootWorldRule, setRootWorldRule] = useState('');
-  const [rootEntitiesInput, setRootEntitiesInput] = useState('');
-
   const [universeList, setUniverseList] = useState(null);
   const [universeListError, setUniverseListError] = useState(null);
   const [universeSlug, setUniverseSlug] = useState('');
@@ -127,8 +121,8 @@ function Create({ lang, onCreated, stories = [] }) {
   };
 
   const t = lang === 'es'
-    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'La IA genera el cuento completo. Vos elegís el tono.', subtitleExpand: 'ECHO-7 escribe un nuevo cuento que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, expandFormLabel: 'FORMA NARRATIVA', expandFormHint: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.', inheritOpt: 'HEREDAR DEL PADRE', parentFormTag: 'FORMA DEL PADRE', parentFormUnknown: 'desconocida', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE ECHO-7', ctxToggleHide: '▾ OCULTAR CONTEXTO', ctxLoading: 'CARGANDO CONTEXTO · ', ctxAncestors: 'CADENA DE ANCESTROS', ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.', ctxParent: 'CUERPO DEL PADRE (entra completo)', ctxUniverse: 'MEMORIA DEL UNIVERSO', ctxEntities: 'ENTIDADES RECURRENTES', ctxAuthor: 'AUTOR', ctxStats: 'TOTAL', ctxChars: 'caracteres', ctxWarn: 'La memoria del universo creció mucho. Compactarla condensa el resumen y las entidades sin perder lo esencial (usa Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACTAR MEMORIA', ctxCompacting: 'COMPACTANDO · ', ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Ingresá por CREAR para poder compactar.', umToggleShow: '▸ VER MEMORIA DEL UNIVERSO', umToggleHide: '▾ OCULTAR MEMORIA', universeToggleShow: '▸ USAR UN UNIVERSO COMO BASE', universeToggleHide: '▾ OCULTAR UNIVERSO BASE', universePickLabel: 'ELEGIR UNIVERSO', universePickPh: '— Elegí un universo —', universeListLoading: 'CARGANDO UNIVERSOS · ', universeEmpty: 'Todavía no hay universos (ningún árbol con 3+ cuentos).', universeHint: 'Un universo es un árbol de 3+ cuentos. Compactarlo condensa todo el árbol (raíz + ramas) en un resumen único para que ECHO-7 nazca como rama nueva del universo.', universeTreeTitle: (n) => `ÁRBOL DE ${n} CUENTOS`, universeCompactBtn: '◼ COMPACTAR ESTE UNIVERSO', universeCompacting: 'COMPACTANDO UNIVERSO · ', universeCompactDone: (r) => `UNIVERSO CONDENSADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} cuentos`, universeInUse: 'RESUMEN DE UNIVERSO EN USO — el cuento nuevo continuará el hilo de este universo.', universeClear: 'LIMPIAR UNIVERSO BASE', universeEntitiesLabel: 'ENTIDADES DEL UNIVERSO', rootToggleShow: '▸ CUENTO RAÍZ · UNIVERSO NUEVO', rootToggleHide: '▾ OCULTAR CUENTO RAÍZ', rootEnableLabel: 'MODO UNIVERSO NUEVO', rootEnableHint: 'Inaugura un universo independiente. SE DESCARTA todo contexto previo: sin autor ECHO-7, sin memoria de Tau Ceti Drift, sin entidades heredadas. El cuento se firma como ECHO-8 y no pertenece a ningún universo.', rootEnableOn: 'ACTIVO · UNIVERSO NUEVO · FIRMA ECHO-8', rootEnableOff: 'INACTIVO · CUENTO EN TAU CETI DRIFT · ECHO-7', rootNameLabel: 'NOMBRE DEL UNIVERSO (OPCIONAL)', rootNamePh: 'Ej: Tau Ceti Drift, Gran Corte, Archivo Menor…', rootRuleLabel: 'REGLA DE MUNDO (OPCIONAL)', rootRulePh: 'Una frase. Ej: "Los recuerdos se transcriben en cinta magnética antes de borrarse."', rootEntitiesLabel: 'ENTIDADES SEMBRADAS (OPCIONAL)', rootEntitiesPh: 'Nombres separados por coma. Ej: Corvo, Estación Eulalia, el Protocolo', rootEntitiesHint: 'Si los escribís, el modelo los usará tal cual. Si los dejás vacíos, el modelo inventa — es lo recomendado para no co-autorar.', rootNote: 'Si hay un UNIVERSO BASE activo, el modo tronco se ignora — ese cuento continúa un hilo existente, no es raíz.', expanding: 'GENERANDO · ', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
-    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'The AI generates the full story. You set the tone.', subtitleExpand: 'ECHO-7 writes a new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, expandFormLabel: 'NARRATIVE FORM', expandFormHint: 'INHERIT reuses the parent form. Pick another to contrast.', inheritOpt: 'INHERIT FROM PARENT', parentFormTag: 'PARENT FORM', parentFormUnknown: 'unknown', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', ctxToggleShow: '▸ SHOW CONTEXT SENT TO ECHO-7', ctxToggleHide: '▾ HIDE CONTEXT', ctxLoading: 'LOADING CONTEXT · ', ctxAncestors: 'ANCESTOR CHAIN', ctxAncestorsEmpty: 'This story has no ancestors — it is a root.', ctxParent: 'PARENT BODY (sent in full)', ctxUniverse: 'UNIVERSE MEMORY', ctxEntities: 'RECURRING ENTITIES', ctxAuthor: 'AUTHOR', ctxStats: 'TOTAL', ctxChars: 'characters', ctxWarn: 'Universe memory has grown large. Compacting condenses summary and entities while keeping the essentials (uses Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACT MEMORY', ctxCompacting: 'COMPACTING · ', ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Enter through CREATE to compact.', umToggleShow: '▸ SHOW UNIVERSE MEMORY', umToggleHide: '▾ HIDE MEMORY', universeToggleShow: '▸ USE A UNIVERSE AS BASE', universeToggleHide: '▾ HIDE UNIVERSE BASE', universePickLabel: 'PICK UNIVERSE', universePickPh: '— Choose a universe —', universeListLoading: 'LOADING UNIVERSES · ', universeEmpty: 'No universes yet (no tree with 3+ stories).', universeHint: 'A universe is a tree of 3+ stories. Compacting condenses the whole tree (root + branches) into one summary so ECHO-7 can be born as a new branch.', universeTreeTitle: (n) => `TREE OF ${n} STORIES`, universeCompactBtn: '◼ COMPACT THIS UNIVERSE', universeCompacting: 'COMPACTING UNIVERSE · ', universeCompactDone: (r) => `UNIVERSE CONDENSED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} stories`, universeInUse: "UNIVERSE SUMMARY IN USE — the new story will continue this universe's thread.", universeClear: 'CLEAR UNIVERSE BASE', universeEntitiesLabel: 'UNIVERSE ENTITIES', rootToggleShow: '▸ ROOT STORY · NEW UNIVERSE', rootToggleHide: '▾ HIDE ROOT STORY', rootEnableLabel: 'NEW UNIVERSE MODE', rootEnableHint: 'Opens an independent universe. ALL prior context is discarded: no ECHO-7 author, no Tau Ceti Drift memory, no inherited entities. The story is signed by ECHO-8 and belongs to no universe.', rootEnableOn: 'ACTIVE · NEW UNIVERSE · SIGNED BY ECHO-8', rootEnableOff: 'INACTIVE · STORY IN TAU CETI DRIFT · ECHO-7', rootNameLabel: 'UNIVERSE NAME (OPTIONAL)', rootNamePh: 'e.g. Tau Ceti Drift, The Great Cut, Minor Archive…', rootRuleLabel: 'WORLD RULE (OPTIONAL)', rootRulePh: 'One sentence. e.g. "Memories are transcribed to magnetic tape before being erased."', rootEntitiesLabel: 'SEED ENTITIES (OPTIONAL)', rootEntitiesPh: 'Comma-separated names. e.g. Corvo, Eulalia Station, the Protocol', rootEntitiesHint: 'If you write them, the model uses them verbatim. Leaving them empty is recommended — lets the model invent.', rootNote: 'If a UNIVERSE BASE is active, trunk mode is ignored — that story continues an existing thread, not a root.', expanding: 'GENERATING · ', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
+    ? { eyebrow: 'CREAR · NUEVO CUENTO', eyebrowExpand: 'CREAR · EXPANDIR', h1: 'Escribir con la máquina.', h1Expand: 'Expandir un cuento.', subtitle: 'Un cuento nuevo inaugura un universo propio. La IA genera el texto; vos elegís el tono.', subtitleExpand: 'Un cuento nuevo que continúa, precede o echa luz sobre uno existente. Hereda tags, forma y duración del padre.', modeLabel: 'MODO', modeNew: 'NUEVO', modeExpand: 'EXPANDIR', parentLabel: 'CUENTO A EXPANDIR', parentPh: '— Elegí un cuento —', angleLabel: 'ÁNGULO', angleHint: 'Qué tipo de expansión querés', angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' }, expandFormLabel: 'FORMA NARRATIVA', expandFormHint: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.', inheritOpt: 'HEREDAR DEL PADRE', parentFormTag: 'FORMA DEL PADRE', parentFormUnknown: 'desconocida', tagsLabel: 'TAGS TEMÁTICOS', tagsHint: 'Enter para agregar', tagSuggest: 'SUGERIDOS', providerLabel: 'MOTOR IA', modelLabel: 'MODELO', tempLabel: 'TEMPERATURA', tempHint: '0 = preciso · 1 = creativo', lengthLabel: 'DURACIÓN', lengthOpts: { short: 'BREVE · ~3 MIN', medium: 'MEDIO · ~6 MIN', long: 'LARGO · ~10 MIN' }, formLabel: 'FORMA NARRATIVA', formHint: 'Define la estructura del cuento', promptLabel: 'SEMILLA (OPCIONAL)', promptPh: 'Una idea, un tono, una imagen… vacío está bien.', submit: 'GENERAR CUENTO', submitExpand: 'EXPANDIR CUENTO', loading: 'GENERANDO · ', err: '◼ ERROR:', ctxToggleShow: '▸ VER CONTEXTO QUE RECIBE EL MODELO', ctxToggleHide: '▾ OCULTAR CONTEXTO', ctxLoading: 'CARGANDO CONTEXTO · ', ctxAncestors: 'CADENA DE ANCESTROS', ctxAncestorsEmpty: 'Este cuento no tiene ancestros — es raíz.', ctxParent: 'CUERPO DEL PADRE (entra completo)', ctxUniverse: 'MEMORIA DEL UNIVERSO', ctxEntities: 'ENTIDADES RECURRENTES', ctxAuthor: 'AUTOR', ctxStats: 'TOTAL', ctxChars: 'caracteres', ctxWarn: 'La memoria del universo creció mucho. Compactarla condensa el resumen y las entidades sin perder lo esencial (usa Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACTAR MEMORIA', ctxCompacting: 'COMPACTANDO · ', ctxCompactDone: (r) => `COMPACTADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Ingresá por CREAR para poder compactar.', umToggleShow: '▸ VER MEMORIA DEL UNIVERSO', umToggleHide: '▾ OCULTAR MEMORIA', universeToggleShow: '▸ USAR UN UNIVERSO COMO BASE', universeToggleHide: '▾ OCULTAR UNIVERSO BASE', universePickLabel: 'ELEGIR UNIVERSO', universePickPh: '— Elegí un universo —', universeListLoading: 'CARGANDO UNIVERSOS · ', universeEmpty: 'Todavía no hay universos.', universeHint: 'Un universo es un árbol que arranca en una raíz. Compactarlo condensa todo el árbol (raíz + ramas) en un resumen único para que el nuevo cuento nazca como rama del universo.', universeTreeTitle: (n) => `ÁRBOL DE ${n} CUENTOS`, universeCompactBtn: '◼ COMPACTAR ESTE UNIVERSO', universeCompacting: 'COMPACTANDO UNIVERSO · ', universeCompactDone: (r) => `UNIVERSO CONDENSADO: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} cuentos`, universeInUse: 'RESUMEN DE UNIVERSO EN USO — el cuento nuevo continuará el hilo de este universo.', universeClear: 'LIMPIAR UNIVERSO BASE', universeEntitiesLabel: 'ENTIDADES DEL UNIVERSO', expanding: 'GENERANDO · ', lockEyebrow: 'CREAR · ACCESO', lockH1: 'Área privada.', lockSubtitle: 'Generar cuentos consume crédito. Ingresá la contraseña para continuar.', lockPwLabel: 'CONTRASEÑA', lockPwPh: '••••••••', lockSubmit: 'ENTRAR', lockLoading: 'VERIFICANDO · ', logout: 'SALIR' }
+    : { eyebrow: 'CREATE · NEW STORY', eyebrowExpand: 'CREATE · EXPAND', h1: 'Write with the machine.', h1Expand: 'Expand a story.', subtitle: 'A new story opens its own universe. The AI generates the text; you set the tone.', subtitleExpand: 'A new story that continues, precedes or sheds light on an existing one. Inherits tags, form and length from the parent.', modeLabel: 'MODE', modeNew: 'NEW', modeExpand: 'EXPAND', parentLabel: 'STORY TO EXPAND', parentPh: '— Choose a story —', angleLabel: 'ANGLE', angleHint: 'What kind of expansion', angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' }, expandFormLabel: 'NARRATIVE FORM', expandFormHint: 'INHERIT reuses the parent form. Pick another to contrast.', inheritOpt: 'INHERIT FROM PARENT', parentFormTag: 'PARENT FORM', parentFormUnknown: 'unknown', tagsLabel: 'THEMATIC TAGS', tagsHint: 'Enter to add', tagSuggest: 'SUGGESTED', providerLabel: 'AI ENGINE', modelLabel: 'MODEL', tempLabel: 'TEMPERATURE', tempHint: '0 = precise · 1 = creative', lengthLabel: 'LENGTH', lengthOpts: { short: 'SHORT · ~3 MIN', medium: 'MEDIUM · ~6 MIN', long: 'LONG · ~10 MIN' }, formLabel: 'NARRATIVE FORM', formHint: 'Sets the story structure', promptLabel: 'SEED (OPTIONAL)', promptPh: 'An idea, a tone, an image… empty is fine.', submit: 'GENERATE STORY', submitExpand: 'EXPAND STORY', loading: 'GENERATING · ', err: '◼ ERROR:', ctxToggleShow: '▸ SHOW CONTEXT SENT TO THE MODEL', ctxToggleHide: '▾ HIDE CONTEXT', ctxLoading: 'LOADING CONTEXT · ', ctxAncestors: 'ANCESTOR CHAIN', ctxAncestorsEmpty: 'This story has no ancestors — it is a root.', ctxParent: 'PARENT BODY (sent in full)', ctxUniverse: 'UNIVERSE MEMORY', ctxEntities: 'RECURRING ENTITIES', ctxAuthor: 'AUTHOR', ctxStats: 'TOTAL', ctxChars: 'characters', ctxWarn: 'Universe memory has grown large. Compacting condenses summary and entities while keeping the essentials (uses Gemini Flash Lite, ~1 call).', ctxCompactBtn: '◼ COMPACT MEMORY', ctxCompacting: 'COMPACTING · ', ctxCompactDone: (r) => `COMPACTED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%)`, ctxCompactAuth: 'Enter through CREATE to compact.', umToggleShow: '▸ SHOW UNIVERSE MEMORY', umToggleHide: '▾ HIDE MEMORY', universeToggleShow: '▸ USE A UNIVERSE AS BASE', universeToggleHide: '▾ HIDE UNIVERSE BASE', universePickLabel: 'PICK UNIVERSE', universePickPh: '— Choose a universe —', universeListLoading: 'LOADING UNIVERSES · ', universeEmpty: 'No universes yet.', universeHint: 'A universe is a tree rooted in one story. Compacting condenses the whole tree (root + branches) into one summary so the new story can be born as a new branch.', universeTreeTitle: (n) => `TREE OF ${n} STORIES`, universeCompactBtn: '◼ COMPACT THIS UNIVERSE', universeCompacting: 'COMPACTING UNIVERSE · ', universeCompactDone: (r) => `UNIVERSE CONDENSED: ${r.beforeChars} → ${r.afterChars} CHARS (${r.ratio}%) · ${r.nodeCount} stories`, universeInUse: "UNIVERSE SUMMARY IN USE — the new story will continue this universe's thread.", universeClear: 'CLEAR UNIVERSE BASE', universeEntitiesLabel: 'UNIVERSE ENTITIES', expanding: 'GENERATING · ', lockEyebrow: 'CREATE · ACCESS', lockH1: 'Private area.', lockSubtitle: 'Generating stories spends credit. Enter the password to continue.', lockPwLabel: 'PASSWORD', lockPwPh: '••••••••', lockSubmit: 'ENTER', lockLoading: 'CHECKING · ', logout: 'LOG OUT' };
 
   const modelsForProvider = MODELS_BY_PROVIDER[provider] || [];
   const isBoth = provider === 'both';
@@ -171,14 +165,6 @@ function Create({ lang, onCreated, stories = [] }) {
         : {
             tags, provider, model, temp, prompt, length, form,
             ...(universeSummary ? { threadBase: { summaryEs: universeSummary.summaryEs, summaryEn: universeSummary.summaryEn, entities: universeSummary.entities, rootSlug: universeSummary.rootSlug } } : {}),
-            ...(rootEnabled && !universeSummary ? {
-              rootMode: {
-                enabled: true,
-                universeName: rootUniverseName.trim(),
-                worldRule: rootWorldRule.trim(),
-                entities: rootEntitiesInput.split(',').map((s) => s.trim()).filter(Boolean),
-              }
-            } : {}),
           };
       const r = await fetch(url, {
         method: 'POST',
@@ -535,68 +521,6 @@ function Create({ lang, onCreated, stories = [] }) {
               ) : null}
             </div>
 
-            <div style={styles.field}>
-              <button type="button" onClick={() => setRootOpen((v) => !v)} style={styles.threadToggle}>
-                {rootOpen ? t.rootToggleHide : t.rootToggleShow}
-              </button>
-              {rootOpen ? (
-                <div style={styles.threadBox}>
-                  <div style={styles.field}>
-                    <label style={styles.label}>{t.rootEnableLabel}</label>
-                    <div style={styles.segBox}>
-                      <button
-                        type="button"
-                        onClick={() => setRootEnabled(false)}
-                        style={{ ...styles.segBtn, ...(rootEnabled ? {} : styles.segBtnOn) }}>
-                        {t.rootEnableOff}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRootEnabled(true)}
-                        style={{ ...styles.segBtn, ...(rootEnabled ? styles.segBtnOn : {}) }}>
-                        {t.rootEnableOn}
-                      </button>
-                    </div>
-                    <div style={styles.hint}>{t.rootEnableHint}</div>
-                    {universeSummary ? <div style={styles.hint}>{t.rootNote}</div> : null}
-                  </div>
-
-                  {rootEnabled ? (
-                    <>
-                      <div style={styles.field}>
-                        <label style={styles.label}>{t.rootNameLabel}</label>
-                        <input
-                          style={styles.textarea}
-                          value={rootUniverseName}
-                          onChange={(e) => setRootUniverseName(e.target.value)}
-                          placeholder={t.rootNamePh}
-                        />
-                      </div>
-                      <div style={styles.field}>
-                        <label style={styles.label}>{t.rootRuleLabel}</label>
-                        <textarea
-                          style={styles.textarea}
-                          rows={2}
-                          value={rootWorldRule}
-                          onChange={(e) => setRootWorldRule(e.target.value)}
-                          placeholder={t.rootRulePh}
-                        />
-                      </div>
-                      <div style={styles.field}>
-                        <label style={styles.label}>{t.rootEntitiesLabel}</label>
-                        <input
-                          style={styles.textarea}
-                          value={rootEntitiesInput}
-                          onChange={(e) => setRootEntitiesInput(e.target.value)}
-                          placeholder={t.rootEntitiesPh}
-                        />
-                        <div style={styles.hint}>{t.rootEntitiesHint}</div>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
           </>
         )}
 

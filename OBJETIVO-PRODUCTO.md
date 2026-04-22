@@ -24,7 +24,7 @@ Esta visión puede coexistir con lecturas anteriores del proyecto (“curaduría
 1. **Publica** una biblioteca de cuentos cortos de ciencia ficción en **español e inglés** (generados en paralelo por la IA), con ilustración abstracta, metadatos de procedencia y vínculos entre textos.
 2. **Modela narrativas en árbol**: un cuento puede **expandir** otro (secuela, precuela, variación lateral, eco…). Así se forman líneas de lectura y mundos coherentes por acumulación, no por un único autor humano.
 3. **Mantiene memoria de universo**: resúmenes y entidades que la IA puede reutilizar para que nuevos textos **no empiecen en el vacío** si pertenecen al mismo hilo o al mismo “mundo”.
-4. **Agrupa universos navegables**: cuando una línea de derivación alcanza cierta masa (ver siguiente sección), el sistema la trata como **sub-universo** del canon — con mapa (lista, grafo, vista “cosmos”) para explorar cuentos como nodos.
+4. **Agrupa universos navegables**: cada cuento raíz abre su propio **sub-universo** del canon desde el momento en que se crea — con mapa (lista, grafo, vista “cosmos”) para explorar cuentos como nodos. Los universos crecen por expansión posterior.
 
 La aplicación concreta (React + API + base de datos) implementa lectura, catálogo, generación bajo contraseña, expansión guiada y compactación de memoria; ver README y GUIA para detalle.
 
@@ -32,11 +32,11 @@ La aplicación concreta (React + API + base de datos) implementa lectura, catál
 
 ## Cuándo “nace” un universo (regla de producto vs. implementación)
 
-**Idea de producto:** si una historia se **hereda** una y otra vez —es decir, si varios cuentos derivan del mismo tronco— deja de ser “una serie suelta” y pasa a ser un **universo propio**: un conjunto con personajes, lugares y reglas que la propia cadena de textos va definiendo.
+**Idea de producto:** cada cuento raíz abre su propio universo desde el momento en que se crea. La raíz fija el tono, los nombres y las reglas; las expansiones posteriores lo densifican pero no son requisito para que exista.
 
-**En el código actual**, un bloque aparece en la página **UNIVERSOS** cuando el árbol que cuelga de una **raíz** tiene **al menos tres cuentos en total** (la raíz más sus descendientes). No es “tres saltos de herencia” contados de otra forma: es un umbral de **tamaño del árbol** (`total >= 3` en el API de universos).
+**En el código actual**, al crearse un cuento raíz el backend crea automáticamente: (a) el registro `Universe` con slug derivado del cuento, (b) el vínculo `story.universeId`, y (c) la firma de autor ECHO-8. La página **UNIVERSOS** lista todo árbol con raíz — no hay umbral mínimo de descendientes (`total >= 1` en el API).
 
-Si en el futuro se quisiera “solo después de más de tres generaciones de derivación”, habría que ajustar explícitamente esa regla en backend; la narrativa de producto puede mantener la metáfora de “varias herencias” siempre que el equipo alinee el número con la implementación.
+El flujo es automático: no hay toggle manual en CREAR, ni pasos humanos intermedios. Si en el futuro se quisiera exigir un umbral (por ejemplo, ocultar universos “huérfanos” con un solo cuento), hay que ajustar el filtro en backend **y** actualizar este documento en el mismo cambio.
 
 ---
 
@@ -66,7 +66,7 @@ Objetivo de negocio: **acoplar la evolución del canon a la demanda real** sin u
 
 1. **Expresión de la IA sin censura ni corrección humana del relato** — archivo de su voz creativa.
 2. **Dos automatismos complementarios:** emisión diaria aleatoria + estiramiento de lo más leído hacia nuevas ramas.
-3. **Los árboles que crecen lo suficiente se reconocen como universos** y se pueden explorar como mapas; hoy el umbral técnico es un árbol con al menos tres cuentos bajo la misma raíz.
+3. **Cada cuento raíz abre su propio universo** desde su creación, firmado por ECHO-8 y con contexto base; se explora como mapa y crece cuando llegan expansiones.
 
 ---
 
