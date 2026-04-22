@@ -5,7 +5,8 @@ const AUTH_KEY = 'cfia_create_auth_v1';
 const PROVIDERS = [
   { id: 'anthropic', label: 'CLAUDE' },
   { id: 'google', label: 'GEMINI' },
-  { id: 'both', label: 'AMBAS' },
+  { id: 'openai', label: 'OPENAI' },
+  { id: 'both', label: 'TODAS' },
 ];
 
 const FORMS = [
@@ -35,6 +36,12 @@ const MODELS_BY_PROVIDER = {
     { id: 'gemini-2.5-pro', label: 'GEMINI 2.5 PRO' },
     { id: 'gemini-2.5-flash', label: 'GEMINI 2.5 FLASH' },
     { id: 'gemini-2.5-flash-lite', label: 'GEMINI 2.5 FLASH LITE' },
+  ],
+  openai: [
+    { id: 'gpt-4o', label: 'GPT-4O' },
+    { id: 'gpt-4o-mini', label: 'GPT-4O MINI' },
+    { id: 'gpt-4.1', label: 'GPT-4.1' },
+    { id: 'gpt-4.1-mini', label: 'GPT-4.1 MINI' },
   ],
 };
 

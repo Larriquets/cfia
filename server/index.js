@@ -6,6 +6,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateStory } from './generate.js';
 import { generateStoryGemini } from './generateGemini.js';
+import { generateStoryOpenAI } from './generateOpenAI.js';
 import { findOverusedWords } from './titleGuard.js';
 import { pickCreativityKnobs } from './creativityKnobs.js';
 import { loadParentContext, buildContextBlock } from './universeContext.js';
@@ -556,6 +557,7 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
 
     const wantClaude = provider === 'anthropic' || provider === 'both';
     const wantGemini = provider === 'google' || provider === 'both';
+    const wantOpenAI = provider === 'openai' || provider === 'both';
 
     if (wantClaude && !process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada en .env' });
@@ -563,9 +565,13 @@ app.post('/api/stories/generate', requireCreatePassword, async (req, res) => {
     if (wantGemini && !process.env.GEMINI_API_KEY) {
       return res.status(500).json({ error: 'GEMINI_API_KEY no está seteada en .env' });
     }
+    if (wantOpenAI && !process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OPENAI_API_KEY no está seteada en .env' });
+    }
 
-    const claudeModel = (!model || provider === 'both' || provider === 'google') ? 'claude-sonnet-4-5' : model;
-    const geminiModel = (!model || provider === 'both' || provider === 'anthropic') ? 'gemini-2.5-flash' : model;
+    const claudeModel = (!model || provider !== 'anthropic') ? 'claude-sonnet-4-5' : model;
+    const geminiModel = (!model || provider !== 'google') ? 'gemini-2.5-flash' : model;
+    const openaiModel = (!model || provider !== 'openai') ? 'gpt-4o' : model;
 
     const recentRows = await prisma.story.findMany({
       orderBy: { date: 'desc' },
@@ -696,11 +702,21 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
     const formId = form && form !== 'random' ? form : null;
     const claudeKnobs = wantClaude ? pickCreativityKnobs({ formId }) : null;
     let geminiKnobs = wantGemini ? pickCreativityKnobs({ formId }) : null;
+    let openaiKnobs = wantOpenAI ? pickCreativityKnobs({ formId }) : null;
     if (!formId && claudeKnobs && geminiKnobs && claudeKnobs.form.id === geminiKnobs.form.id) {
       geminiKnobs = pickCreativityKnobs({ seed: geminiKnobs.seed + 7 });
     }
+    if (!formId && openaiKnobs) {
+      const taken = new Set([claudeKnobs?.form?.id, geminiKnobs?.form?.id].filter(Boolean));
+      let guard = 0;
+      while (taken.has(openaiKnobs.form.id) && guard < 5) {
+        openaiKnobs = pickCreativityKnobs({ seed: openaiKnobs.seed + 11 + guard });
+        guard += 1;
+      }
+    }
     if (claudeKnobs) console.log(`[knobs claude] form=${claudeKnobs.form.id} object="${claudeKnobs.object}"`);
     if (geminiKnobs) console.log(`[knobs gemini] form=${geminiKnobs.form.id} object="${geminiKnobs.object}"`);
+    if (openaiKnobs) console.log(`[knobs openai] form=${openaiKnobs.form.id} object="${openaiKnobs.object}"`);
 
     const t0 = Date.now();
     const withTimeout = (p, ms, label) =>
@@ -732,6 +748,18 @@ Escribí el cuento como si fuera la primera piedra de un mundo que todavía nadi
         ).then((gen) => {
           console.log(`[generate] gemini done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
           return { gen, modelLabel: geminiModel };
+        }),
+      });
+    }
+    if (wantOpenAI) {
+      tasks.push({
+        provider: 'openai',
+        promise: withTimeout(
+          generateStoryOpenAI({ tags, model: openaiModel, temp, prompt, length, recentTitles, overusedWords, knobs: openaiKnobs, contextBlock, extraUser: combinedExtraUser }),
+          GEN_TIMEOUT_MS, 'openai'
+        ).then((gen) => {
+          console.log(`[generate] openai done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+          return { gen, modelLabel: openaiModel };
         }),
       });
     }
@@ -960,11 +988,14 @@ app.post('/api/stories/:slug/expand', requireCreatePassword, async (req, res) =>
     }
     const wantClaude = provider === 'anthropic';
     const wantGemini = provider === 'google';
+    const wantOpenAI = provider === 'openai';
     if (wantClaude && !process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY no está seteada' });
     if (wantGemini && !process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY no está seteada' });
+    if (wantOpenAI && !process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY no está seteada' });
 
     const claudeModel = model || 'claude-sonnet-4-5';
     const geminiModel = model || 'gemini-2.5-flash';
+    const openaiModel = model || 'gpt-4o';
 
     const recentRows = await prisma.story.findMany({
       orderBy: { date: 'desc' }, take: 30,
@@ -1069,6 +1100,12 @@ Elegí UN ángulo, no mezcles. El cuento debe poder leerse solo, pero gana leíd
       gen = await withTimeout(
         generateStoryGemini({ tags: parentTags, model: geminiModel, temp, prompt: '', length, recentTitles, overusedWords, knobs, contextBlock, extraUser }),
         GEN_TIMEOUT_MS, 'gemini',
+      );
+    } else if (wantOpenAI) {
+      modelLabel = openaiModel;
+      gen = await withTimeout(
+        generateStoryOpenAI({ tags: parentTags, model: openaiModel, temp, prompt: '', length, recentTitles, overusedWords, knobs, contextBlock, extraUser }),
+        GEN_TIMEOUT_MS, 'openai',
       );
     } else {
       modelLabel = claudeModel;

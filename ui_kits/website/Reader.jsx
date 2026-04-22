@@ -32,7 +32,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         angleLabel: 'ÁNGULO',
         angles: { auto: 'AUTO', secuela: 'SECUELA', precuela: 'PRECUELA', lateral: 'LATERAL', eco: 'ECO' },
         providerLabel: 'MOTOR',
-        providers: { anthropic: 'CLAUDE', google: 'GEMINI' },
+        providers: { anthropic: 'CLAUDE', google: 'GEMINI', openai: 'OPENAI' },
         formLabel: 'FORMA NARRATIVA',
         formHintExpand: 'HEREDAR usa la misma forma del padre. Elegí otra para contrastar.',
         inheritOpt: 'HEREDAR DEL PADRE',
@@ -86,7 +86,7 @@ function Reader({ story, lang, onBack, onOpen, onCreated }) {
         angleLabel: 'ANGLE',
         angles: { auto: 'AUTO', secuela: 'SEQUEL', precuela: 'PREQUEL', lateral: 'LATERAL', eco: 'ECHO' },
         providerLabel: 'ENGINE',
-        providers: { anthropic: 'CLAUDE', google: 'GEMINI' },
+        providers: { anthropic: 'CLAUDE', google: 'GEMINI', openai: 'OPENAI' },
         formLabel: 'NARRATIVE FORM',
         formHintExpand: 'INHERIT reuses the parent form. Pick another to contrast.',
         inheritOpt: 'INHERIT FROM PARENT',
@@ -423,7 +423,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
         <div style={expandStyles.field}>
           <label style={expandStyles.label}>{t.providerLabel}</label>
           <div style={expandStyles.segBox}>
-            {['anthropic', 'google'].map((p) => (
+            {['anthropic', 'google', 'openai'].map((p) => (
               <button
                 key={p}
                 type="button"
