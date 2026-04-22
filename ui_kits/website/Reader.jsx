@@ -496,33 +496,7 @@ function ExpandPanel({ story, lang, t, onCreated }) {
   );
 }
 
-function collectDescendants(allStories, rootSlug) {
-  const childrenBy = new Map();
-  for (const s of allStories) {
-    const ps = s.parentSlug;
-    if (!ps) continue;
-    if (!childrenBy.has(ps)) childrenBy.set(ps, []);
-    childrenBy.get(ps).push(s.slug);
-  }
-  const out = new Set([rootSlug]);
-  const stack = [rootSlug];
-  while (stack.length) {
-    const cur = stack.pop();
-    const kids = childrenBy.get(cur) || [];
-    for (const k of kids) if (!out.has(k)) { out.add(k); stack.push(k); }
-  }
-  return out;
-}
-
-function collectTreeSlugs(node, set) {
-  if (!node) return set;
-  set.add(node.slug);
-  for (const c of node.children || []) collectTreeSlugs(c, set);
-  return set;
-}
-
 function CoParentPicker({ story, lang, t, selected, onChange }) {
-  const all = window.CFIA_STORIES || [];
   const [tree, setTree] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -543,12 +517,17 @@ function CoParentPicker({ story, lang, t, selected, onChange }) {
 
   const candidates = useMemo(() => {
     if (!tree) return [];
-    const inTree = collectTreeSlugs(tree.root, new Set());
-    const excluded = collectDescendants(all, story.slug);
-    return all
-      .filter((s) => inTree.has(s.slug) && !excluded.has(s.slug))
+    const flat = [];
+    const walk = (node) => {
+      if (!node) return;
+      flat.push(node);
+      for (const c of node.children || []) walk(c);
+    };
+    walk(tree.root);
+    return flat
+      .filter((n) => n.slug !== story.slug)
       .sort((a, b) => (a.num || 0) - (b.num || 0));
-  }, [all, story.slug, tree]);
+  }, [story.slug, tree]);
 
   const toggle = (slug) => {
     if (selected.includes(slug)) {
